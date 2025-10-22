@@ -1,0 +1,124 @@
+<ui-page-header title="Crear máquinas">
+  <div actions class="flex flex-wrap gap-2 ml-auto"><!-- acciones opcionales --></div>
+</ui-page-header>
+
+<!-- ===== Formulario ===== -->
+<section class="panel">
+  <header class="panel-head">
+    <h3>Nueva máquina</h3>
+  </header>
+  <div class="panel-body">
+    <form #formularioRef="ngForm" (ngSubmit)="guardar()">
+      <div class="grid-3">
+        <div>
+          <label class="mb-1">Nombre*</label>
+          <input class="form-control" [(ngModel)]="nueva.nombre" name="nombre" required />
+        </div>
+
+        <div>
+          <label class="mb-1">Tipo*</label>
+          <select class="form-select" [(ngModel)]="nueva.tipo" name="tipo" required>
+            <option *ngFor="let t of tipos" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+
+        <div class="align-end">
+          <label class="mb-1">&nbsp;</label>
+          <div class="form-check">
+            <input type="checkbox" id="chkActiva" class="form-check-input" [(ngModel)]="nueva.activa" name="activa" />
+            <label class="form-check-label" for="chkActiva">¿Activa?</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="end-actions">
+        <button class="btn-primary" type="submit">{{ editando ? 'Actualizar' : 'Guardar' }}</button>
+        <button class="btn-outline" type="button" (click)="cancelar()">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ===== Importar Excel ===== -->
+<section class="panel">
+  <header class="panel-head">
+    <h3>Importar desde Excel</h3>
+    <div class="muted small">Plantilla: columnas <b>Nombre</b>, <b>Tipo</b>, <b>Activa</b> (Sí/No)</div>
+  </header>
+  <div class="panel-body">
+    <div class="file-row">
+      <input type="file" (change)="subirExcel($event)" class="form-control" accept=".xlsx, .xls" style="max-width:320px" />
+      <button class="btn-outline" (click)="importarDesdeExcel()" [disabled]="!maquinasExcel.length">
+        ⬆️ Importar {{ maquinasExcel.length || 0 }} máquinas
+      </button>
+    </div>
+
+    <table class="simple-preview" *ngIf="maquinasExcel.length">
+      <thead>
+        <tr><th>Nombre</th><th>Tipo</th><th>Activa</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let m of maquinasExcel">
+          <td>{{ m.nombre }}</td>
+          <td>{{ m.tipo }}</td>
+          <td>{{ m.activa ? 'Sí' : 'No' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===== Listado ===== -->
+<section class="panel">
+  <header class="panel-head">
+    <h3>Máquinas registradas</h3>
+  </header>
+  <div class="panel-body list-scroll">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Tipo</th>
+            <th>Activa</th>
+            <th class="text-end">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr #filaMaquinaRef *ngFor="let m of maquinas; trackBy: trackById" [attr.data-id]="m.id">
+            <td>{{ m.nombre }}</td>
+            <td>{{ m.tipo }}</td>
+            <td>
+              <span class="badge-primary" *ngIf="m.activa">Activa</span>
+              <span class="muted" *ngIf="!m.activa">Inactiva</span>
+            </td>
+            <td class="text-end">
+              <div class="actions">
+                <button class="btn btn-sm btn-outline-primary" (click)="editar(m)" title="Editar">✏️</button>
+                <button class="btn btn-sm btn-outline-danger" (click)="eliminar(m.id!)" title="Eliminar">🗑️</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Guía de plantilla ===== -->
+<section class="panel">
+  <header class="panel-head"><h3>Ejemplo de plantilla</h3></header>
+  <div class="panel-body">
+    <div class="table-wrap">
+      <table class="table simple-preview">
+        <thead>
+          <tr><th>Nombre</th><th>Tipo</th><th>Activa</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>P27A</td><td>Formacion</td><td>Sí</td></tr>
+          <tr><td>Horno 1</td><td>Horno</td><td>No</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

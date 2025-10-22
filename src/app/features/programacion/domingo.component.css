@@ -1,0 +1,228 @@
+/* ================== Variables base (Cómoda) ================== */
+.domingo-page {
+  --fs: .95rem; /* tamaño fuente tabla */
+  --fs-sub: .82rem; /* subtítulos/roles */
+  --cell-py: .50rem; /* padding Y celdas */
+  --cell-px: .45rem; /* padding X celdas */
+  --head-py: .65rem; /* padding cabecera */
+  --gap-person: 2px; /* gap en cada persona */
+}
+
+  /* ================== Densidad: COMPACTA ================== */
+  .domingo-page.density-compact {
+    --fs: .90rem;
+    --fs-sub: .78rem;
+    --cell-py: .38rem;
+    --cell-px: .35rem;
+    --head-py: .50rem;
+    --gap-person: 1px;
+  }
+
+  /* ================== Densidad: ULTRA ================== */
+  .domingo-page.density-ultra {
+    --fs: .72rem;
+    --fs-sub: .66rem;
+    --cell-py: .18rem;
+    --cell-px: .20rem;
+    --head-py: .28rem;
+    --gap-person: 0;
+  }
+
+  /* ===== Shell / Card ===== */
+  .domingo-page .table-shell.card {
+    background: var(--bg);
+    color: var(--fg);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--elev-1);
+    border: 1px solid var(--neutral-200);
+    overflow: hidden;
+  }
+
+  .domingo-page .table-scroll {
+    max-height: 78vh;
+    overflow: auto
+  }
+
+  /* ===== Toolbar ===== */
+  .domingo-page .pro-toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr; /* Izq - Centro - Der */
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+    .domingo-page .pro-toolbar .nav-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .domingo-page .pro-toolbar .left {
+      justify-content: flex-start;
+    }
+
+    .domingo-page .pro-toolbar .center {
+      justify-content: center;
+    }
+
+    .domingo-page .pro-toolbar .right {
+      justify-content: flex-end;
+    }
+
+    .domingo-page .pro-toolbar .filters {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+      .domingo-page .pro-toolbar .filters mat-form-field {
+        width: 220px;
+      }
+
+  /* ===== Tabla ===== */
+  .domingo-page .table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: var(--fs);
+  }
+
+  .domingo-page .table-head th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--brand-50);
+    color: var(--brand-800);
+    border-bottom: 1px solid var(--brand-100);
+    font-weight: 700;
+    letter-spacing: .2px;
+    padding: var(--head-py) .5rem;
+  }
+
+  .domingo-page .sticky-col {
+    position: sticky;
+    background: var(--bg);
+    z-index: 4;
+  }
+
+  .domingo-page .first-col {
+    left: 0;
+    box-shadow: 1px 0 0 0 var(--neutral-200);
+  }
+
+  .domingo-page .table tbody tr:nth-child(odd) td:not(.first-col) {
+    background: #fbfcfd;
+  }
+
+  .domingo-page .table tbody tr:nth-child(even) td:not(.first-col) {
+    background: #f5f7fa;
+  }
+
+  .domingo-page .table tbody tr:hover td {
+    background: #eaf4ff;
+    transition: background-color .18s ease-in-out;
+  }
+
+  .domingo-page td, .domingo-page th {
+    vertical-align: middle;
+    text-align: center;
+    padding: var(--cell-py) var(--cell-px);
+    border-top: 1px solid var(--neutral-200);
+  }
+
+  /* Fila coordinadores */
+  .domingo-page .coord-row td {
+    background: linear-gradient(0deg,var(--brand-50),#fff 60%);
+    border-top: 1px solid var(--brand-100);
+    font-weight: 600;
+  }
+
+  .domingo-page .coord-name {
+    color: var(--brand-800);
+  }
+
+  /* Celdas personas */
+  .domingo-page .cell-person {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-person);
+    align-items: center;
+  }
+
+  .domingo-page .person-name {
+    color: #111827;
+  }
+
+  .domingo-page .person-role {
+    color: var(--neutral-600);
+    font-size: var(--fs-sub);
+  }
+
+/* Badges (compat Bootstrap) */
+.badge.bg-info {
+  background-color: #d0f0ff !important;
+  color: #0c5460;
+}
+
+.badge.bg-warning {
+  background-color: #fff3cd !important;
+  color: #856404;
+}
+
+.badge.bg-secondary {
+  background-color: #e2e3e5 !important;
+  color: #383d41;
+}
+
+td span.badge {
+  display: inline-block;
+  width: 100%;
+  font-size: .9rem;
+  font-weight: 600;
+  padding: .30rem .5rem;
+  border-radius: .5rem;
+}
+
+.domingo-page .compacto-columna {
+  padding: var(--cell-py) var(--cell-px) !important;
+}
+
+/* Footer acciones */
+.domingo-page .footer-actions {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.domingo-page .footer-left {
+  justify-self: start;
+}
+
+.domingo-page .footer-center {
+  justify-self: center;
+}
+
+.domingo-page .footer-right {
+  justify-self: end;
+}
+
+/* Toggle densidad */
+.domingo-page .density-toggle {
+  background: #f9fbff;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(0,0,0,.04);
+}
+
+/* Responsive */
+@media (max-width:1024px) {
+  .domingo-page .pro-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+    .domingo-page .pro-toolbar .filters mat-form-field {
+      width: 100%;
+    }
+}

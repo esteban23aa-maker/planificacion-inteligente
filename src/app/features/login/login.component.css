@@ -1,0 +1,6 @@
+/* Estilos para LoginComponent */
+:host { display: block; padding: 1rem; }
+
+.card {
+  border-radius: 16px;
+}

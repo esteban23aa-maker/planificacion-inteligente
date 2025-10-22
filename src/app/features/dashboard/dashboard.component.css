@@ -1,0 +1,10 @@
+:host { display:block; }
+mat-sidenav-container { background: var(--neutral-50); color: var(--fg); }
+mat-sidenav { border-right: 1px solid var(--neutral-200); }
+
+/* estado activo del menú */
+a.mat-mdc-list-item.active {
+  background: var(--brand-50) !important;
+  color: var(--brand-800) !important;
+}
+a.mat-mdc-list-item:hover { background: var(--brand-50) !important; }

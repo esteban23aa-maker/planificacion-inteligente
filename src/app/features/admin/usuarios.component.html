@@ -1,0 +1,44 @@
+<mat-card>
+  <h2 class="title">Gestión de Usuarios</h2>
+
+  <button mat-raised-button color="primary" (click)="abrirCrear()">
+    <mat-icon>person_add</mat-icon> Crear Usuario
+  </button>
+
+  <table mat-table [dataSource]="usuarios" class="usuarios-table">
+
+    <ng-container matColumnDef="username">
+      <th mat-header-cell *matHeaderCellDef>Usuario</th>
+      <td mat-cell *matCellDef="let u">{{ u.username }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="roles">
+      <th mat-header-cell *matHeaderCellDef>Roles</th>
+      <td mat-cell *matCellDef="let u">{{ u.roles.join(', ') }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="activo">
+      <th mat-header-cell *matHeaderCellDef>Estado</th>
+      <td mat-cell *matCellDef="let u">
+        <span class="estado" [class.activo]="u.activo" [class.inactivo]="!u.activo">
+          {{ u.activo ? 'Activo' : 'Inactivo' }}
+        </span>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="acciones">
+      <th mat-header-cell *matHeaderCellDef>Acciones</th>
+      <td mat-cell *matCellDef="let u" class="acciones">
+        <button mat-icon-button color="primary" matTooltip="Cambiar contraseña" (click)="abrirCambiarPassword(u)">
+          <mat-icon>lock_reset</mat-icon>
+        </button>
+        <button mat-icon-button color="warn" matTooltip="Desactivar usuario" (click)="desactivar(u)">
+          <mat-icon>person_off</mat-icon>
+        </button>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="cols"></tr>
+    <tr mat-row *matRowDef="let row; columns: cols"></tr>
+  </table>
+</mat-card>

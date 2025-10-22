@@ -1,0 +1,18 @@
+<h2>Alertas del Sistema</h2>
+
+<!-- Mostrar mensaje si no hay alertas -->
+<div *ngIf="alertas.length === 0">
+  <p>No hay alertas pendientes</p>
+</div>
+
+<!-- Lista de alertas no resueltas -->
+<div *ngFor="let alerta of alertas"
+     class="alerta"
+     [ngClass]="alerta.nivel.toLowerCase()">
+  <strong>{{ alerta.tipo }}</strong> - <span>{{ alerta.nivel }}</span>
+  <p>{{ alerta.mensaje }}</p>
+
+  <small [style.color]="alerta.resuelta ? 'green' : 'red'">
+    {{ alerta.resuelta ? 'Resuelta' : 'Pendiente' }}
+  </small>
+</div>

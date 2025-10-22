@@ -1,0 +1,162 @@
+:host {
+  display: block;
+}
+
+/* Lienzo */
+mat-sidenav-container {
+  background: var(--neutral-50);
+  color: var(--fg);
+}
+
+mat-sidenav {
+  border-right: 1px solid var(--neutral-200);
+  transition: transform 180ms ease, width 180ms ease;
+}
+
+/* TOPBAR (degradado de marca) */
+.topbar-hero {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: linear-gradient(90deg, var(--brand-600), var(--brand-700));
+  color: var(--primary-contrast);
+  box-shadow: 0 2px 8px rgba(0,0,0,.10);
+}
+
+.topbar-hero mat-icon {
+  color: var(--primary-contrast) !important;
+}
+
+/* NAV lateral */
+.nav-item {
+  margin: 4px 8px;
+  border-radius: 12px;
+  position: relative;
+}
+
+.nav-item mat-icon {
+  color: var(--neutral-600);
+}
+
+.nav-item:hover {
+  background: var(--brand-50) !important;
+}
+
+.nav-item:hover mat-icon {
+  color: var(--primary);
+}
+
+.nav-active {
+  background: var(--brand-50) !important;
+  color: var(--brand-800) !important;
+  font-weight: 600;
+  box-shadow: inset 4px 0 0 0 var(--primary);
+}
+
+.nav-active mat-icon {
+  color: var(--primary);
+}
+
+/* Cards globales */
+.card {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--elev-1);
+}
+
+/* ===== Botón usuario (dos líneas) ===== */
+.user-btn {
+  --pad: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--pad);
+  border-radius: 9999px;
+  color: var(--primary-contrast);
+  text-transform: none;
+}
+
+.user-btn:hover {
+  background: rgba(255,255,255,.12);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.user-name {
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 700;
+}
+
+.user-sub {
+  font-size: 12px;
+  opacity: .9;
+}
+
+/* Avatar (color via [ngStyle]) */
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  display: inline-grid;
+  place-items: center;
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+.avatar.lg {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+
+/* Menú de usuario */
+.name {
+  font-weight: 800;
+}
+
+.roles {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.role-chip {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .3px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--brand-50);
+  color: var(--brand-800);
+  border: 1px solid var(--brand-100);
+}
+
+/* Skeleton breve */
+.skeleton-user {
+  width: 148px;
+  height: 38px;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(255,255,255,.25), rgba(255,255,255,.35), rgba(255,255,255,.25));
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: .6
+  }
+
+  50% {
+    opacity: .95
+  }
+
+  100% {
+    opacity: .6
+  }
+}

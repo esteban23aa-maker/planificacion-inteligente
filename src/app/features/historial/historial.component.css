@@ -1,0 +1,207 @@
+/* ===== Variables / densidad ===== */
+.historial-page {
+  --fs: .95rem;
+  --fs-sub: .82rem;
+  --cell-py: .50rem;
+  --cell-px: .45rem;
+  --head-py: .65rem;
+  /* neutrales locales */
+  --surface: #fff;
+  --neutral-200: #e5e7eb;
+  --neutral-300: #d1d5db;
+  /* ====== tokens LOCALES (no tocar los del sistema) ====== */
+  --hist-head-bg: #f8fafc; /* fondo de cabecera de tabla */
+  --hist-head-border: #e5e7eb; /* borde inferior cabecera */
+  --hist-head-text: #0f172a; /* color texto cabecera */
+}
+
+  .historial-page.density-compact {
+    --fs: .90rem;
+    --fs-sub: .78rem;
+    --cell-py: .36rem;
+    --cell-px: .34rem;
+    --head-py: .52rem;
+  }
+
+  .historial-page.density-ultra {
+    --fs: .78rem;
+    --fs-sub: .70rem;
+    --cell-py: .24rem;
+    --cell-px: .22rem;
+    --head-py: .36rem;
+  }
+
+.density-toggle {
+  margin-left: 8px;
+}
+
+/* ===== Filtros ===== */
+.filters-bar.card {
+  border: 1px solid var(--neutral-200);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  margin-bottom: 12px;
+}
+
+.filters-top {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.filters-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.grid.auto-fit {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.quick-row {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+  .quick-row .muted {
+    color: #6b7280;
+    font-size: var(--fs-sub);
+  }
+
+.w-280 {
+  width: 280px;
+}
+
+/* Campos densos */
+.dense-field .mat-mdc-form-field-infix {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+.dense-field .mat-mdc-text-field-wrapper {
+  height: 42px;
+}
+
+.dense-field .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+/* ===== Tabla ===== */
+.table-shell.card {
+  border: 1px solid var(--neutral-200);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+
+.table-scroll {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+/* tipografía base de la tabla */
+.table {
+  width: 100%;
+  font-size: var(--fs);
+}
+
+/* Header sticky (mat-header-cell) con tokens locales */
+.table-head .mat-mdc-header-cell {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--hist-head-bg);
+  color: var(--hist-head-text);
+  border-bottom: 1px solid var(--hist-head-border);
+  font-weight: 700;
+  padding: var(--head-py) .5rem;
+}
+
+/* Celdas */
+.mat-mdc-cell, .mat-mdc-header-cell {
+  vertical-align: middle;
+  text-align: left;
+  padding: var(--cell-py) var(--cell-px);
+  border-top: 1px solid var(--neutral-200);
+}
+
+/* Rayado y hover */
+.mat-mdc-row:nth-child(odd) .mat-mdc-cell {
+  background: #fbfcfd;
+}
+
+.mat-mdc-row:nth-child(even) .mat-mdc-cell {
+  background: #f5f7fa;
+}
+
+.mat-mdc-row:hover .mat-mdc-cell {
+  background: #eaf4ff;
+  transition: background-color .18s ease-in-out;
+}
+
+/* === Densidad explícita en celdas/header === */
+.historial-page.density-compact .mat-mdc-cell,
+.historial-page.density-compact .mat-mdc-header-cell {
+  padding: .36rem .34rem !important;
+  font-size: .90rem;
+}
+
+.historial-page.density-ultra .mat-mdc-cell,
+.historial-page.density-ultra .mat-mdc-header-cell {
+  padding: .22rem .22rem !important;
+  font-size: .78rem;
+}
+
+/* Tipo chips (paletas propias – no dependen de brand del sistema) */
+.type-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: .78rem;
+  border: 1px solid transparent;
+}
+
+  .type-chip.t-asg {
+    background: #ecfeff;
+    color: #155e75;
+    border-color: #a5f3fc;
+  }
+
+  .type-chip.t-y1 {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+  }
+
+  .type-chip.t-y2 {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #fecaca;
+  }
+
+  .type-chip.t-sug {
+    background: #eef2ff;
+    color: #3730a3;
+    border-color: #e0e7ff;
+  }
+
+  .type-chip.t-man {
+    background: #f3f4f6;
+    color: #374151;
+    border-color: #e5e7eb;
+  }
+
+/* ===== Apariencia fill "blanco" ===== */
+.historial-page .mat-mdc-form-field-appearance-fill .mat-mdc-text-field-wrapper {
+  --mdc-filled-text-field-container-color: var(--surface);
+  background: var(--surface);
+}

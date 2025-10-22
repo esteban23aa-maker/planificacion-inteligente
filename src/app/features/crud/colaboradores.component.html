@@ -1,0 +1,287 @@
+<ui-page-header title="Gestión avanzada de colaboradores" [subtitle]="subtitle" [actions]="true">
+  <div actions class="flex flex-wrap gap-2 ml-auto">
+    <button mat-stroked-button (click)="activarModoReasignacion()" *ngIf="!modoReasignacion">
+      <mat-icon class="mr-1">swap_horiz</mat-icon> Reasignar múltiples
+    </button>
+  </div>
+</ui-page-header>
+
+<!-- Barra de filtros (compacta) -->
+<div class="filters-bar card compact">
+  <!-- fila superior: búsqueda + acciones -->
+  <div class="filters-top">
+    <!-- SIN LABEL => sin hueco -->
+    <mat-form-field appearance="fill" class="dense-field w-280">
+      <input matInput [(ngModel)]="filtroNombre" placeholder="Nombre…" />
+      <button *ngIf="filtroNombre" matSuffix mat-icon-button aria-label="Limpiar" (click)="filtroNombre=''">
+        <mat-icon>close</mat-icon>
+      </button>
+    </mat-form-field>
+
+    <div class="filters-actions">
+      <button mat-stroked-button (click)="filtrosAbiertos = !filtrosAbiertos">
+        <mat-icon>{{ filtrosAbiertos ? 'filter_alt_off' : 'filter_alt' }}</mat-icon>
+        {{ filtrosAbiertos ? 'Ocultar filtros' : 'Más filtros' }}
+        <span *ngIf="filtrosActivos">&nbsp;({{ filtrosActivos }})</span>
+      </button>
+      <button mat-button (click)="limpiarFiltros()" [disabled]="!filtrosActivos">
+        <mat-icon>backspace</mat-icon> Limpiar
+      </button>
+    </div>
+  </div>
+
+  <!-- filtros avanzados -->
+  <div class="filters-advanced" *ngIf="filtrosAbiertos">
+    <div class="grid auto-fit">
+      <mat-form-field appearance="fill" floatLabel="always" class="dense-field">
+        <mat-label>Rol (reemplazos)</mat-label>
+        <mat-select [(ngModel)]="filtroPuedeReemplazarRol" [compareWith]="compareById">
+          <mat-option [value]="null">— Todos —</mat-option>
+          <mat-option *ngFor="let r of roles" [value]="r">{{ r.nombre }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" floatLabel="always" class="dense-field">
+        <mat-label>Grupo</mat-label>
+        <mat-select [(ngModel)]="filtroGrupo">
+          <mat-option [value]="null">— Todos —</mat-option>
+          <mat-option *ngFor="let g of grupos" [value]="g">{{ g }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" floatLabel="always" class="dense-field">
+        <mat-label>Coordinador</mat-label>
+        <mat-select [(ngModel)]="filtroCoordinadorId">
+          <mat-option [value]="null">— Todos —</mat-option>
+          <mat-option *ngFor="let c of coordinadoresDisponibles" [value]="c.id">{{ c.nombre }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="fill" floatLabel="always" class="dense-field">
+        <mat-label>Máquina principal</mat-label>
+        <mat-select [(ngModel)]="filtroMaquinaPrincipal" [compareWith]="compareById">
+          <mat-option [value]="null">— Todas —</mat-option>
+          <mat-option *ngFor="let m of maquinas" [value]="m">{{ m.nombre }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <mat-checkbox class="mt-1 dense-checkbox" [(ngModel)]="filtroSinAsignacion">
+      Solo sin grupo o sin coordinador
+    </mat-checkbox>
+  </div>
+
+  <!-- Modo reasignación -->
+  <div class="reassign-row" *ngIf="modoReasignacion">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <mat-form-field appearance="fill" class="w-100">
+          <mat-label>Anterior coordinador</mat-label>
+          <mat-select [(ngModel)]="filtroCoordinadorId">
+            <mat-option [value]="null">— Cualquiera —</mat-option>
+            <mat-option *ngFor="let c of coordinadoresAsignados" [value]="c.id">{{ c.nombre }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="col-md-4">
+        <mat-form-field appearance="fill" class="w-100">
+          <mat-label>Nuevo coordinador</mat-label>
+          <mat-select [(ngModel)]="nuevo.coordinadorId">
+            <mat-option *ngFor="let c of coordinadoresDisponibles" [value]="c.id">{{ c.nombre }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="col-md-4 d-flex gap-2">
+        <button mat-flat-button color="primary" (click)="confirmarReasignacion()" [disabled]="!nuevo.coordinadorId">
+          ✅ Reasignar a <strong>{{ getNombreCoordinadorSeleccionado() }}</strong>
+        </button>
+        <button mat-stroked-button (click)="modoReasignacion = false">✖ Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
+
+<!-- ===== Formulario de edición ===== -->
+<div class="card form-card" #formularioEdicion>
+  <div class="card-header">
+    <strong>{{ editando ? 'Editar colaborador' : 'Nuevo colaborador' }}</strong>
+    <span class="muted" *ngIf="editando">Modo edición</span>
+  </div>
+
+  <div class="card-body">
+    <form (ngSubmit)="guardar()" class="formulario-colaborador">
+      <!-- Datos básicos (solo edición) -->
+      <fieldset *ngIf="editando">
+        <legend>Datos básicos</legend>
+        <div class="row grid-2-cols">
+          <mat-form-field appearance="fill">
+            <mat-label>Nombre</mat-label>
+            <input matInput [(ngModel)]="nuevo.nombre" name="nombre" required [readonly]="editando">
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Documento</mat-label>
+            <input matInput [(ngModel)]="nuevo.documento" name="documento" required [readonly]="editando">
+          </mat-form-field>
+        </div>
+      </fieldset>
+
+      <!-- Información laboral -->
+      <fieldset>
+        <legend>Información laboral</legend>
+
+        <div class="row grid-2-cols">
+          <mat-form-field appearance="fill">
+            <mat-label>Puesto</mat-label>
+            <mat-select [(ngModel)]="nuevo.puesto" name="puesto" [compareWith]="compareById" [required]="isTitular(nuevo.grupo)">
+              <mat-option *ngFor="let p of puestos" [value]="p">{{ p.nombre }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Grupo</mat-label>
+            <mat-select [(ngModel)]="nuevo.grupo" name="grupo" (ngModelChange)="onGrupoChange()">
+              <mat-option *ngFor="let g of grupos" [value]="g">{{ g | grupoDisplay }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="row grid-2-cols" *ngIf="isTitular(nuevo.grupo)">
+          <div>
+            <mat-form-field appearance="fill" class="w-100">
+              <mat-label>Coordinador asignado</mat-label>
+              <mat-select [(ngModel)]="nuevo.coordinadorId" name="coordinadorId">
+                <mat-option *ngFor="let c of coordinadoresDisponibles" [value]="c.id">{{ c.nombre }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <div class="row gap-2 align-items-center mt-2">
+              <mat-slide-toggle [(ngModel)]="nuevo.tieneTurnoFijo" name="tieneTurnoFijo">Tiene turno fijo</mat-slide-toggle>
+
+              <mat-form-field *ngIf="nuevo.tieneTurnoFijo" appearance="fill" class="w-220">
+                <mat-label>Horario fijo</mat-label>
+                <mat-select [(ngModel)]="nuevo.turnoFijo" name="turnoFijo">
+                  <mat-option *ngFor="let t of turnosGrupo" [value]="t">{{ t }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+          </div>
+
+          <div>
+            <mat-form-field appearance="fill" class="w-100">
+              <mat-label>Máquina principal</mat-label>
+              <mat-select [(ngModel)]="nuevo.maquina" name="maquina" [compareWith]="compareById" [disabled]="sinMaquinaPrincipal">
+                <mat-option *ngFor="let m of maquinas" [value]="m">{{ m.nombre }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-checkbox class="mt-1" [(ngModel)]="sinMaquinaPrincipal" [ngModelOptions]="{standalone:true}">
+              Sin máquina principal asignada
+            </mat-checkbox>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Asignaciones -->
+      <fieldset>
+        <legend>Asignaciones</legend>
+        <div class="row grid-2-cols">
+          <mat-form-field appearance="fill">
+            <mat-label>Máquinas</mat-label>
+            <mat-select [(ngModel)]="nuevo.maquinas" name="maquinas" multiple [compareWith]="compareById">
+              <mat-option *ngFor="let m of maquinas" [value]="m">{{ m.nombre }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="fill">
+            <mat-label>Puede reemplazar (Roles)</mat-label>
+            <mat-select [(ngModel)]="nuevo.puedeReemplazar" name="puedeReemplazar" multiple [compareWith]="compareById">
+              <mat-option *ngFor="let r of roles" [value]="r">{{ r.nombre }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </fieldset>
+
+      <!-- Botones -->
+      <div class="end-actions">
+        <button mat-flat-button color="primary" type="submit" [disabled]="cargando">
+          <mat-icon *ngIf="!cargando">save</mat-icon>
+          <mat-icon *ngIf="cargando" class="spin">autorenew</mat-icon>
+          {{ cargando ? 'Guardando…' : (editando ? 'Actualizar' : 'Guardar') }}
+        </button>
+        <button mat-stroked-button type="button" (click)="cancelar()" [disabled]="cargando">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== Tabla ===== -->
+<div class="table-shell card">
+  <div class="table-scroll">
+    <table class="table table-bordered align-middle">
+      <thead class="table-head">
+        <tr>
+          <th *ngIf="modoReasignacion" class="check-col">
+            <mat-checkbox [(ngModel)]="seleccionarTodos" [ngModelOptions]="{standalone:true}"
+                          (change)="toggleSeleccionarTodos()"></mat-checkbox>
+          </th>
+          <th>Nombre</th>
+          <th>Documento</th>
+          <th>Puesto</th>
+          <th>Grupo</th>
+          <th>Turno fijo</th>
+          <th>Máquina principal</th>
+          <th>Máquinas</th>
+          <th>Reemplazos</th>
+          <th>Coordinador</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let c of (colaboradores
+               | filtroColaboradores : filtroNombre
+                                     : filtroPuedeReemplazarRol
+                                     : filtroCoordinadorId
+                                     : filtroGrupo
+                                     : filtroMaquinaPrincipal
+                                     : filtroSinAsignacion);
+               trackBy: trackById"
+            [attr.data-id]="c.id">
+          <td *ngIf="modoReasignacion" class="check-col">
+            <mat-checkbox [(ngModel)]="c.seleccionado" [ngModelOptions]="{standalone:true}"></mat-checkbox>
+          </td>
+          <td>{{ c.nombre }}</td>
+          <td>{{ c.documento }}</td>
+          <td>{{ c.puesto?.nombre || 'Sin asignar' }}</td>
+          <td>{{ c.grupo | grupoDisplay }}</td>
+          <td>{{ c.turnoFijo || '—' }}</td>
+          <td>{{ c.maquina?.nombre || '—' }}</td>
+          <td>{{ getNombresMaquinas(c.maquinas) }}</td>
+          <td>{{ getNombresRoles(c.puedeReemplazar) }}</td>
+          <td>{{ c.coordinadorNombre || 'Sin asignar' }}</td>
+          <td class="actions">
+            <button mat-stroked-button color="primary" (click)="editar(c)" matTooltip="Editar">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-stroked-button color="warn" (click)="eliminar(c.id!)" matTooltip="Eliminar">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Overlay pantalla completa -->
+<div *ngIf="fullscreenLoading" class="fullscreen-loader" aria-live="assertive" aria-busy="true">
+  <div class="loader-orbit" role="progressbar" aria-label="Procesando">
+    <div class="ball"></div>
+  </div>
+  <div class="loader-text">Procesando…</div>
+</div>

@@ -5,7 +5,6 @@
   "projects": {
     "planificacion-inteligente": {
       "projectType": "application",
-      "schematics": {},
       "root": "",
       "sourceRoot": "src",
       "prefix": "app",
@@ -14,46 +13,56 @@
           "builder": "@angular/build:application",
           "options": {
             "browser": "src/main.ts",
-            "polyfills": [
-              "zone.js"
-            ],
             "tsConfig": "tsconfig.app.json",
             "assets": [
               {
                 "glob": "**/*",
-                "input": "public"
-              }
+                "input": "public",
+                "output": "/"
+              },
+              "src/favicon.ico",
+              "src/assets"
             ],
             "styles": [
+              "src/styles/tokens.scss",
+              "src/styles/tailwind.css",
+              "src/styles/theme.scss",
+              "node_modules/bootstrap/dist/css/bootstrap.min.css",
               "src/styles.css"
-            ]
+            ],
+            "scripts": []
           },
+          "defaultConfiguration": "production",
           "configurations": {
             "production": {
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
-                  "maximumError": "1MB"
+                  "maximumWarning": "750kb",
+                  "maximumError": "1.5mb"
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumWarning": "8kb",
+                  "maximumError": "12kb"
                 }
               ],
               "outputHashing": "all"
             },
             "development": {
               "optimization": false,
-              "extractLicenses": false,
-              "sourceMap": true
+              "sourceMap": true,
+              "extractLicenses": false
             }
-          },
-          "defaultConfiguration": "production"
+          }
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          "options": {
+            "buildTarget": "planificacion-inteligente:build",
+            "proxyConfig": "proxy.conf.json"
+          },
+          "defaultConfiguration": "development",
           "configurations": {
             "production": {
               "buildTarget": "planificacion-inteligente:build:production"
@@ -61,32 +70,36 @@
             "development": {
               "buildTarget": "planificacion-inteligente:build:development"
             }
-          },
-          "defaultConfiguration": "development"
+          }
         },
         "extract-i18n": {
-          "builder": "@angular/build:extract-i18n"
+          "builder": "@angular/build:extract-i18n",
+          "options": {
+            "buildTarget": "planificacion-inteligente:build"
+          }
         },
         "test": {
           "builder": "@angular/build:karma",
           "options": {
-            "polyfills": [
-              "zone.js",
-              "zone.js/testing"
-            ],
+            "polyfills": [ "zone.js", "zone.js/testing" ],
             "tsConfig": "tsconfig.spec.json",
             "assets": [
-              {
-                "glob": "**/*",
-                "input": "public"
-              }
+              "src/favicon.ico",
+              "src/assets"
             ],
             "styles": [
+              "src/styles/tailwind.css",
+              "@angular/material/prebuilt-themes/azure-blue.css",
+              "node_modules/bootstrap/dist/css/bootstrap.min.css",
               "src/styles.css"
-            ]
+            ],
+            "scripts": []
           }
         }
       }
     }
+  },
+  "cli": {
+    "analytics": false
   }
 }

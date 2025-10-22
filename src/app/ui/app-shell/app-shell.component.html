@@ -1,0 +1,93 @@
+<mat-sidenav-container class="h-screen bg-[var(--neutral-50)]">
+  <!-- SIDENAV -->
+  <mat-sidenav #snav
+               [mode]="isMobile ? 'over' : 'side'"
+               [(opened)]="opened"
+               class="w-72 !bg-[var(--bg)] !text-[var(--fg)] shadow-lg"
+               (mouseenter)="cancelClose()"
+               (mouseleave)="scheduleClose()">
+    <div class="px-4 py-5 border-b border-[var(--neutral-200)]">
+      <div class="flex items-center gap-3">
+        <div class="h-9 w-9 rounded-xl" style="background: var(--primary)"></div>
+        <div class="font-semibold text-lg text-[var(--primary)]">Planificación</div>
+      </div>
+    </div>
+
+    <mat-nav-list>
+      <ng-container *ngFor="let it of items">
+        <ng-container *ifRoles="it.roles || []">
+          <a mat-list-item
+             [routerLink]="it.path"
+             routerLinkActive="nav-active"
+             [routerLinkActiveOptions]="{ exact: it.exact ?? false }"
+             class="!rounded-xl mx-3 my-1 nav-item">
+            <mat-icon class="mr-3">{{ it.icon }}</mat-icon>
+            <span>{{ it.label }}</span>
+          </a>
+        </ng-container>
+      </ng-container>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <!-- CONTENT -->
+  <mat-sidenav-content>
+    <mat-toolbar color="primary" class="topbar-hero">
+      <!-- Click = anclado; Hover/Focus = abre temporal -->
+      <button mat-icon-button
+              aria-label="Menú"
+              (click)="toggle()"
+              (mouseenter)="hoverOpen()"
+              (focus)="hoverOpen()">
+        <mat-icon>menu</mat-icon>
+      </button>
+
+      <span class="flex-1 font-semibold text-[17px] ml-2">Panel</span>
+
+      <!-- ===== Usuario ===== -->
+      <ng-container *ngIf="session$ | async as s; else userSkeleton">
+        <button mat-button [matMenuTriggerFor]="userMenu" class="user-btn"
+                matTooltip="{{ s.username }}" aria-label="Cuenta de usuario">
+          <span class="avatar" [ngStyle]="avatarStyle(displayName(s))" aria-hidden="true">
+            {{ initials(displayName(s)) }}
+          </span>
+          <span class="user-info">
+            <span class="user-name">{{ displayName(s) }}</span>
+            <span class="user-sub" *ngIf="secondaryLine(s)">{{ secondaryLine(s) }}</span>
+          </span>
+        </button>
+
+        <mat-menu #userMenu="matMenu" xPosition="before">
+          <div class="px-4 py-3 min-w-[240px]">
+            <div class="flex items-center gap-3">
+              <div class="avatar lg" [ngStyle]="avatarStyle(displayName(s))">
+                {{ initials(displayName(s)) }}
+              </div>
+              <div class="min-w-0">
+                <div class="name">{{ displayName(s) }}</div>
+                <div class="roles">
+                  <ng-container *ngFor="let r of prettyRoles(s.roles)">
+                    <span class="role-chip">{{ r }}</span>
+                  </ng-container>
+                </div>
+              </div>
+            </div>
+          </div>
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="signOut()">
+            <mat-icon>logout</mat-icon><span>Salir</span>
+          </button>
+        </mat-menu>
+      </ng-container>
+
+      <ng-template #userSkeleton>
+        <div class="skeleton-user" aria-hidden="true"></div>
+      </ng-template>
+    </mat-toolbar>
+
+    <main class="p-6">
+      <div class="max-w-[1280px] mx-auto">
+        <router-outlet></router-outlet>
+      </div>
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

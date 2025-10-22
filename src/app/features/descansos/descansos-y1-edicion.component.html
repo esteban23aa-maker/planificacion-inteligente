@@ -1,0 +1,318 @@
+<ui-page-header title="Descansos compensatorios – Edición" [subtitle]="subtitle" [actions]="true">
+  <div actions class="flex flex-wrap gap-2 ml-auto">
+    <button mat-stroked-button (click)="volverADomingo()">
+      <mat-icon class="mr-1">arrow_back</mat-icon> Volver a Domingo
+    </button>
+
+    <button *ifRoles="['SUPERVISOR','ADMIN']" mat-stroked-button (click)="rebalancear()">
+      <mat-icon class="mr-1">calculate</mat-icon> Rebalancear semana
+    </button>
+
+    <button *ifRoles="['SUPERVISOR','ADMIN']" mat-stroked-button [color]="swapMode ? 'primary' : ''" (click)="toggleSwap()">
+      <mat-icon class="mr-1">swap_horiz</mat-icon>
+      {{ swapMode ? 'Salir de Intercambio' : 'Modo Intercambio' }}
+    </button>
+
+    <ng-container *ifRoles="['ADMIN']">
+      <button mat-stroked-button color="primary" (click)="generarDescansos()">
+        <mat-icon class="mr-1">auto_mode</mat-icon> Generar descansos
+      </button>
+      <button mat-stroked-button color="warn" (click)="eliminarDescansos()">
+        <mat-icon class="mr-1">delete_forever</mat-icon> Eliminar descansos
+      </button>
+    </ng-container>
+  </div>
+</ui-page-header>
+
+<div class="pro-toolbar">
+  <div class="nav-group left">
+    <button mat-stroked-button (click)="irAnterior()" [disabled]="!habilitaAnterior">
+      <mat-icon>chevron_left</mat-icon> Semana anterior
+    </button>
+  </div>
+
+  <div class="filters center">
+    <mat-form-field appearance="outline">
+      <mat-icon matPrefix>group</mat-icon>
+      <input matInput [(ngModel)]="filtroReemplazo" placeholder="Filtrar reemplazo…" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-icon matPrefix>person_search</mat-icon>
+      <input matInput [(ngModel)]="filtroNombre" placeholder="Filtrar colaborador…" />
+    </mat-form-field>
+  </div>
+
+  <div class="nav-group right">
+    <button mat-stroked-button color="primary" (click)="irSiguiente()" [disabled]="!habilitaSiguiente">
+      Semana siguiente <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
+</div>
+
+<mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
+
+<mat-drawer-container class="drawer-layout" *ngIf="!loading" hasBackdrop>
+  <mat-drawer-content>
+
+    <!-- TABLA -->
+    <div class="table-shell card">
+      <div class="table-scroll">
+        <table class="table table-bordered align-middle text-center">
+          <thead class="table-head">
+            <tr>
+              <th class="sticky-col first-col">Reemplazo</th>
+              <th *ngFor="let col of calendarCols; trackBy: trackByCol" [class.today-col]="isToday(col.iso)">
+                <div class="th-line1">{{ col.label }}</div>
+                <div class="th-line2">{{ col.iso }}</div>
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let row of filteredRows(); trackBy: trackByRow">
+              <td class="sticky-col first-col"><strong class="reemplazo-name">{{ row.reemplazo }}</strong></td>
+              <td *ngFor="let col of calendarCols; trackBy: trackByCol" [class.today-col]="isToday(col.iso)">
+                <ng-container *ngIf="row.cells[col.iso] as cell; else empty">
+                  <div *ngFor="let g of cell.groups" class="cell-group">
+                    <div class="group-meta">
+                      <span class="chip">{{ g.puesto }}</span>
+                      <span class="dot">•</span>
+                      <span class="chip alt">{{ g.maquina }}</span>
+                      <span class="dot">•</span>
+                      <span class="chip tone">{{ g.turno }}</span>
+                    </div>
+
+                    <div class="group-people">
+                      <button *ngFor="let c of g.colaboradores"
+                              class="person-btn"
+                              mat-stroked-button
+                              [disabled]="!canEdit"
+                              [class.selected]="isSelected(c, col.iso)"
+                              matTooltip="Seleccionar descanso de {{c}}"
+                              (click)="onClickNombre(c, col.iso); swapMode && addSelectedToSwap()">
+                        {{ c }}
+                      </button>
+                    </div>
+                  </div>
+                </ng-container>
+                <ng-template #empty>—</ng-template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- INCIDENCIAS -->
+    <!-- INCIDENCIAS (versión pro) -->
+    <div class="inc-panel mat-elevation-z2">
+      <div class="inc-toolbar">
+        <div class="inc-title">
+          <mat-icon>report</mat-icon>
+          <strong>Incidencias</strong>
+        </div>
+
+        <div class="inc-filters">
+          <mat-button-toggle-group [(ngModel)]="incFilter" class="sev-toggle">
+            <mat-button-toggle value="ALL">Todas ({{ incidencias.length || 0 }})</mat-button-toggle>
+            <mat-button-toggle value="ERROR"><mat-icon>error</mat-icon> {{ incError }}</mat-button-toggle>
+            <mat-button-toggle value="WARNING"><mat-icon>warning</mat-icon> {{ incWarn }}</mat-button-toggle>
+            <mat-button-toggle value="INFO"><mat-icon>info</mat-icon> {{ incInfo }}</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+
+        <div class="inc-actions">
+          <button mat-stroked-button (click)="incidenciasVisible = !incidenciasVisible">
+            {{ incidenciasVisible ? 'Ocultar' : 'Mostrar' }}
+          </button>
+          <button mat-stroked-button color="primary" (click)="cargarIncidencias(domingoActual)">
+            <mat-icon class="mr-1">refresh</mat-icon> Refrescar
+          </button>
+        </div>
+      </div>
+
+      <ng-container *ngIf="incidenciasVisible">
+        <div *ngIf="filteredIncidencias.length === 0" class="text-muted px-2 py-3">
+          Sin incidencias para esta semana.
+        </div>
+
+        <mat-accordion [multi]="true" *ngIf="filteredIncidencias.length">
+          <mat-expansion-panel *ngFor="let i of filteredIncidencias; trackBy: trackByInc"
+                               [ngClass]="panelClass(i.severity)">
+            <mat-expansion-panel-header>
+              <mat-panel-title class="inc-header">
+                <mat-icon class="sev-icon">{{ severityIcon(i.severity) }}</mat-icon>
+                <span class="code">{{ i.code }}</span>
+                <span class="msg">{{ i.message }}</span>
+              </mat-panel-title>
+              <mat-panel-description>
+                Semana: {{ i.domingoBase || '—' }}
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <div class="inc-body">
+              <div class="kv">
+                <span>Severidad:</span>
+                <mat-chip-set>
+                  <mat-chip [ngClass]="sevChipClass(i.severity)">{{ i.severity }}</mat-chip>
+                </mat-chip-set>
+              </div>
+
+              <div class="kv" *ngIf="i.domingoBase">
+                <span>Semana:</span>
+                <strong>{{ i.domingoBase }}</strong>
+                <button mat-button (click)="irA(i.domingoBase)" *ngIf="i.domingoBase !== domingoActual">
+                  Ir a semana
+                </button>
+              </div>
+
+              <div class="kv" *ngIf="i.context && (i.context | json) !== '{}'">
+                <span>Detalles:</span>
+                <pre class="json">{{ i.context | json }}</pre>
+                <div class="json-actions">
+                  <button mat-stroked-button (click)="copyInc(i)">
+                    <mat-icon>content_copy</mat-icon> Copiar JSON
+                  </button>
+                </div>
+              </div>
+            </div>
+          </mat-expansion-panel>
+        </mat-accordion>
+      </ng-container>
+
+      <!-- Espaciado -->
+      <div style="height:6px"></div>
+      <div class="mt-2">
+        <button mat-stroked-button color="primary" (click)="cargarIncidencias(domingoActual)">
+          <mat-icon class="mr-1">refresh</mat-icon> Refrescar incidencias
+        </button>
+      </div>
+    </div>
+
+    <!-- Bandeja Intercambio -->
+    <div class="swap-tray" *ngIf="swapMode">
+      <div class="tray-content">
+        <div class="tray-left">
+          <mat-icon>swap_horiz</mat-icon>
+          <span>Intercambio activo</span>
+        </div>
+        <div class="tray-mid">
+          <div class="swap-chip" *ngFor="let s of swapBucket">
+            <span class="tag">#{{ s.id }}</span> {{ s.colaborador }} · {{ s.fechaDescanso }}
+            <button mat-icon-button color="warn" (click)="removeFromSwap(s)" matTooltip="Quitar">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+        <div class="tray-right">
+          <button mat-flat-button color="primary" (click)="ejecutarSwap()" [disabled]="!canSwap()">Ejecutar</button>
+          <button mat-stroked-button (click)="limpiarSwap()">Limpiar</button>
+          <button mat-stroked-button color="warn" (click)="toggleSwap()">Salir</button>
+        </div>
+      </div>
+    </div>
+
+  </mat-drawer-content>
+
+  <!-- Drawer edición -->
+  <mat-drawer class="editor-drawer" position="end" [opened]="editorOpen" mode="over">
+    <div class="card edicion-panel">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>✏️ Edición</strong>
+        <div class="actions">
+          <mat-slide-toggle [(ngModel)]="swapMode" [disabled]="!canEdit">Intercambio</mat-slide-toggle>
+          <button mat-icon-button (click)="closeEditor()" matTooltip="Cerrar">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <ng-container *ngIf="selected; else noSel">
+          <div class="kv"><span>Colaborador:</span> <strong>{{ selected.colaborador }}</strong></div>
+          <div class="kv"><span>Fecha actual:</span> <strong>{{ selected.fechaDescanso }}</strong></div>
+          <div class="kv"><span>Reemplazo:</span> <strong>{{ selected.reemplazo || '—' }}</strong></div>
+          <div class="kv"><span>PMT:</span> <strong>{{ selected.puesto || '—' }} / {{ selected.maquina || '—' }} / {{ selected.turno || '—' }}</strong></div>
+          <div class="kv">
+            <span>Origen:</span>
+            <strong>
+              {{ selected.creadoPorSistema ? 'Sistema' : 'Manual' }}
+              <span *ngIf="selected.descansoDoble"> · Domingo doble</span>
+            </strong>
+          </div>
+
+          <hr>
+
+          <div class="section-title">📅 Mover a fecha</div>
+          <div class="rowish">
+            <mat-form-field appearance="outline" class="w-220">
+              <input matInput [matDatepicker]="picker" [(ngModel)]="nuevaFechaDate" [disabled]="!canEdit">
+              <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+              <mat-datepicker #picker></mat-datepicker>
+            </mat-form-field>
+
+            <mat-slide-toggle [(ngModel)]="forzar" [disabled]="!canEdit">Forzar</mat-slide-toggle>
+
+            <button mat-flat-button color="primary" (click)="moverSeleccion()" [disabled]="!canEdit || !nuevaFechaDate">
+              Mover
+            </button>
+          </div>
+
+          <div class="quick-picks">
+            <span class="qp-label">Rápidos:</span>
+            <button mat-stroked-button class="qp" *ngFor="let col of calendarCols; trackBy: trackByCol"
+                    (click)="quickPick(col.iso)" [disabled]="!canEdit">
+              {{ col.label | slice:0:3 }} {{ col.iso }}
+            </button>
+          </div>
+
+          <hr>
+
+          <div class="section-title">🔁 Intercambio</div>
+          <div class="rowish">
+            <button mat-stroked-button (click)="addSelectedToSwap()" [disabled]="!canEdit || !swapMode">
+              Agregar a intercambio
+            </button>
+            <mat-slide-toggle [(ngModel)]="forzarSwap" [disabled]="!swapMode">Forzar</mat-slide-toggle>
+          </div>
+
+          <hr>
+
+          <!-- ⚡ NUEVO: Reset individual -->
+          <div class="section-title">♻️ Reset individual (semana actual)</div>
+          <div class="rowish">
+
+            <!-- (Opcional) botón para un solo descanso -->
+            <button mat-stroked-button color="warn" (click)="eliminarSeleccion()" [disabled]="!canEdit">
+              Eliminar este descanso
+            </button>
+
+          </div>
+
+        </ng-container>
+
+        <ng-template #noSel>
+          <div class="text-muted">Selecciona un nombre en el calendario para editar.</div>
+        </ng-template>
+      </div>
+    </div>
+  </mat-drawer>
+</mat-drawer-container>
+
+<div class="footer-actions">
+  <div class="footer-center">
+    <mat-button-toggle-group class="density-toggle" [value]="density" (change)="setDensity($event.value)">
+      <mat-button-toggle value="comfortable">Cómoda</mat-button-toggle>
+      <mat-button-toggle value="compact">Compacta</mat-button-toggle>
+      <mat-button-toggle value="ultra">Ultra</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+</div>
+
+<div *ngIf="fullscreenLoading" class="fullscreen-loader" aria-live="assertive" aria-busy="true">
+  <div class="loader-orbit" role="progressbar" aria-label="Procesando">
+    <div class="ball"></div>
+  </div>
+  <div class="loader-text">Procesando…</div>
+</div>

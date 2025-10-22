@@ -1,0 +1,170 @@
+<ui-page-header title="Edición Domingo" [subtitle]="subtitle" [actions]="true">
+  <div actions class="flex flex-wrap gap-2 ml-auto">
+    <button mat-stroked-button (click)="cancelar()">
+      <mat-icon class="mr-1">close</mat-icon> Cancelar
+    </button>
+    <button mat-flat-button color="primary" (click)="guardarCambios()">
+      <mat-icon class="mr-1">save</mat-icon> Guardar cambios
+    </button>
+  </div>
+</ui-page-header>
+
+<div class="pro-toolbar">
+  <div class="nav-group left">
+    <button mat-stroked-button (click)="agregarColaborador()">
+      <mat-icon>person_add</mat-icon> Agregar colaborador
+    </button>
+  </div>
+
+  <div class="filters center">
+    <mat-form-field appearance="outline">
+      <mat-icon matPrefix>search</mat-icon>
+      <input matInput [(ngModel)]="filtroTexto" placeholder="Máquina o puesto…" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-icon matPrefix>person_search</mat-icon>
+      <input matInput [(ngModel)]="filtroNombre" placeholder="Nombre…" />
+    </mat-form-field>
+  </div>
+
+  <div class="nav-group right"></div>
+</div>
+
+<mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
+
+<!-- Tabla -->
+<div class="table-shell card" *ngIf="!isLoading">
+  <div class="table-scroll">
+    <table class="table table-sm table-bordered text-center align-middle">
+      <thead class="table-head">
+        <tr>
+          <th class="sticky-col first-col">Máquina / Puesto</th>
+          <th *ngFor="let t of turnosDisponibles; trackBy: trackByTurno" class="text-nowrap">
+            {{ t }}
+          </th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <!-- Coordinadores -->
+        <tr class="coord-row">
+          <td class="sticky-col first-col"><strong>COORDINADOR</strong></td>
+          <td *ngFor="let t of turnosDisponibles; trackBy: trackByTurno">
+            <ng-container *ngIf="coordinadoresPorTurno[t]; else noCoord">
+              <strong class="coord-name">{{ coordinadoresPorTurno[t] }}</strong>
+            </ng-container>
+            <ng-template #noCoord>
+              <span class="text-muted">—</span>
+            </ng-template>
+          </td>
+        </tr>
+
+        <!-- Grupos -->
+        <tr *ngFor="let grupo of maquinasFiltradas(); trackBy: trackByGrupo">
+          <td class="sticky-col first-col">
+            <ng-container *ngIf="esMaquina(grupo); else esPuesto">
+              <strong>{{ grupo }}</strong>
+            </ng-container>
+            <ng-template #esPuesto>
+              <span [class]="getBadgeClass(grupo)">{{ grupo }}</span>
+            </ng-template>
+          </td>
+
+          <td *ngFor="let t of turnosDisponibles; trackBy: trackByTurno" class="compacto-columna">
+            <ng-container *ngIf="getColaboradores(grupo, t).length > 0; else sinAsignacion">
+              <div *ngFor="let col of getColaboradores(grupo, t); trackBy: trackByCol"
+                   #colaboradorRow
+                   class="cell-person row-item">
+                <div class="person">
+                  <strong class="person-name">{{ col.nombre }}</strong>
+                  <span class="person-role">({{ col.puesto }})</span>
+                </div>
+                <div class="row-actions">
+                  <button mat-icon-button color="primary" (click)="editarColaborador(col)" aria-label="Editar">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button color="warn" (click)="eliminarColaboradorPorId(col.id)" aria-label="Eliminar">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </div>
+            </ng-container>
+            <ng-template #sinAsignacion>
+              <span class="text-muted">—</span>
+            </ng-template>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Form de alta/edición -->
+<div #formularioColaborador class="card form-shell" *ngIf="editandoNuevo">
+  <div class="form-title">Editar / Agregar colaborador</div>
+
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div>
+      <label class="form-label">Nombre</label>
+      <ng-select class="ng-custom"
+                 [items]="nombresDisponibles"
+                 bindLabel="nombre"
+                 bindValue="id"
+                 [(ngModel)]="nuevoColaborador.id"
+                 name="id"
+                 placeholder="Selecciona un colaborador"
+                 (change)="onColaboradorSeleccionado()">
+      </ng-select>
+    </div>
+
+    <div>
+      <label class="form-label">Máquina</label>
+      <ng-select class="ng-custom"
+                 [items]="maquinasDisponibles"
+                 bindLabel="nombre"
+                 bindValue="id"
+                 [(ngModel)]="nuevoColaborador.maquinaId"
+                 name="maquinaId"
+                 placeholder="Máquina asignada">
+      </ng-select>
+    </div>
+
+    <div>
+      <label class="form-label">Puesto</label>
+      <ng-select class="ng-custom"
+                 [items]="puestosDisponibles"
+                 bindLabel="nombre"
+                 bindValue="id"
+                 [(ngModel)]="nuevoColaborador.puestoId"
+                 name="puestoId"
+                 placeholder="Puesto asignado">
+      </ng-select>
+    </div>
+
+    <div>
+      <label class="form-label">Turno</label>
+      <select class="form-select" [(ngModel)]="nuevoColaborador.turno" name="turno">
+        <option *ngFor="let t of turnosDisponibles" [value]="t">{{ t }}</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <button mat-stroked-button (click)="cancelarAgregar()">Cancelar</button>
+    <button mat-flat-button color="primary" (click)="confirmarAgregarColaborador()">Guardar</button>
+  </div>
+</div>
+
+<!-- Footer / Density -->
+<div class="footer-actions">
+  <div class="footer-left"></div>
+  <div class="footer-center">
+    <mat-button-toggle-group class="density-toggle" [value]="density" (change)="setDensity($event.value)">
+      <mat-button-toggle value="comfortable">Cómoda</mat-button-toggle>
+      <mat-button-toggle value="compact">Compacta</mat-button-toggle>
+      <mat-button-toggle value="ultra">Ultra</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+  <div class="footer-right"></div>
+</div>

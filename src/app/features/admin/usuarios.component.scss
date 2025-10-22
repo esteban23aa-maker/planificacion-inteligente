@@ -1,0 +1,44 @@
+mat-card {
+  padding: 24px;
+  margin: 16px;
+}
+
+.title {
+  margin-bottom: 16px;
+  font-weight: 600;
+  font-size: 1.4rem;
+  color: #0477BF;
+}
+
+button {
+  margin-bottom: 16px;
+}
+
+.usuarios-table {
+  width: 100%;
+  border-spacing: 0;
+}
+
+th, td {
+  padding: 10px;
+  text-align: left;
+}
+
+.estado {
+  font-weight: 600;
+  &.activo
+
+{
+  color: green;
+}
+
+&.inactivo {
+  color: red;
+}
+
+}
+
+.acciones {
+  display: flex;
+  gap: 4px;
+}

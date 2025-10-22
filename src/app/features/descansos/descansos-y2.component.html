@@ -1,0 +1,160 @@
+<ui-page-header title="Descansos de reduccion"
+                [subtitle]="subtitle"
+                [actions]="true">
+  <div actions class="flex flex-wrap gap-2 ml-auto">
+    <ng-container *ifRoles="['ADMIN','SUPERVISOR']">
+      <button mat-stroked-button color="primary" (click)="generar()">
+        <mat-icon class="mr-1">auto_mode</mat-icon> Generar reducciones
+      </button>
+      <button mat-stroked-button color="warn" (click)="eliminar()">
+        <mat-icon class="mr-1">delete_forever</mat-icon> Eliminar reducciones
+      </button>
+      <button mat-stroked-button color="accent" (click)="exportarExcel()" *ifRoles="['SUPERVISOR','ADMIN']">
+        <mat-icon class="mr-1">table_view</mat-icon> Exportar Excel
+      </button>
+    </ng-container>
+  </div>
+</ui-page-header>
+
+<!-- Toolbar -->
+<div class="pro-toolbar">
+  <div class="nav-group left">
+    <button mat-stroked-button (click)="irAnterior()" [disabled]="!habilitaAnterior">
+      <mat-icon>chevron_left</mat-icon> Semana anterior
+    </button>
+  </div>
+
+  <div class="filters center">
+    <mat-form-field appearance="outline">
+      <mat-icon matPrefix>group</mat-icon>
+      <input matInput [(ngModel)]="filtroReemplazo" placeholder="Filtrar reemplazo…" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-icon matPrefix>person_search</mat-icon>
+      <input matInput [(ngModel)]="filtroNombre" placeholder="Filtrar titular…" />
+    </mat-form-field>
+  </div>
+
+  <div class="nav-group right">
+    <button mat-stroked-button color="primary" (click)="irSiguiente()" [disabled]="!habilitaSiguiente">
+      Semana siguiente <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
+</div>
+
+<mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
+
+<!-- Calendario -->
+<div class="table-shell card" *ngIf="!loading">
+  <div class="table-scroll">
+    <table class="table table-bordered align-middle text-center">
+      <thead class="table-head">
+        <tr>
+          <th class="sticky-col first-col">Reemplazo</th>
+          <th *ngFor="let col of calendarCols; trackBy: trackByCol"
+              [class.today-col]="isToday(col.iso)">
+            <div class="th-line1">{{ col.label }}</div>
+            <div class="th-line2">{{ col.iso }}</div>
+          </th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let row of filteredRows(); trackBy: trackByRow">
+          <td class="sticky-col first-col">
+            <strong class="reemplazo-name">{{ row.reemplazo }}</strong>
+          </td>
+
+          <td *ngFor="let col of calendarCols; trackBy: trackByCol"
+              [class.today-col]="isToday(col.iso)">
+            <ng-container *ngIf="row.cells[col.iso] as cell; else empty">
+              <!-- Agrupación visual POR TURNO; dentro van sus franjas ordenadas -->
+              <div class="turno-block" *ngFor="let tb of turnoBuckets(cell)">
+                <div class="turno-badge">{{ tb.turno }}</div>
+                <div class="turno-content">
+                  <div class="franja-row" *ngFor="let g of tb.items">
+                    <div class="franja-meta">
+                      <span class="chip alt" *ngIf="g.puesto">{{ g.puesto }}</span>
+                      <span class="dot" *ngIf="g.puesto">•</span>
+                      <span class="chip tone" *ngIf="g.maquina">{{ g.maquina }}</span>
+                      <span class="dot" *ngIf="g.franja">•</span>
+                      <span class="chip mini" *ngIf="g.franja">{{ g.franja }}</span>
+                      <span class="dot">•</span>
+                      <span class="chip mini hours">{{ g.horas }}h</span>
+                    </div>
+                    <div class="people">
+                      <span class="person" *ngFor="let c of g.colaboradores; let last = last">
+                        {{ c }}<span *ngIf="!last">, </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ng-container>
+            <ng-template #empty>—</ng-template>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Incidencias -->
+<div *ifRoles="['ADMIN']">
+  <div class="inc-container card" *ngIf="!loading">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>⚠️ Incidencias</strong>
+      <span class="badge bg-secondary">Total: {{ incTotal }}</span>
+    </div>
+
+    <div class="card-body" *ngIf="incTotal > 0; else noIncidencias">
+      <div class="table-responsive">
+        <table class="table table-sm table-striped">
+          <thead>
+            <tr>
+              <th>Titular</th>
+              <th>Grupo</th>
+              <th>Fecha</th>
+              <th>Turno</th>
+              <th>Franja</th>
+              <th>Motivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let i of incidencias">
+              <td>{{ i.colaboradorNombre }}</td>
+              <td>{{ i.grupo }}</td>
+              <td>{{ i.fecha }}</td>
+              <td>{{ i.turno || '—' }}</td>
+              <td>{{ i.franja || '—' }}</td>
+              <td class="text-danger">{{ i.motivo }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <ng-template #noIncidencias>
+      <div class="p-3 text-muted">✔️ No hay incidencias en esta semana.</div>
+    </ng-template>
+  </div>
+</div>
+<!-- Footer / Density -->
+<div class="footer-actions">
+  <div class="footer-center">
+    <mat-button-toggle-group class="density-toggle" [value]="density" (change)="setDensity($event.value)">
+      <mat-button-toggle value="comfortable">Cómoda</mat-button-toggle>
+      <mat-button-toggle value="compact">Compacta</mat-button-toggle>
+      <mat-button-toggle value="ultra">Ultra</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+</div>
+
+<!-- Overlay pantalla completa -->
+<div *ngIf="fullscreenLoading" class="fullscreen-loader" aria-live="assertive" aria-busy="true">
+  <div class="loader-orbit" role="progressbar" aria-label="Procesando">
+    <div class="ball"></div>
+  </div>
+  <div class="loader-text">Cargando…</div>
+</div>

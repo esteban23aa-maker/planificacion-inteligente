@@ -1,1 +1,198 @@
-/* You can add global styles to this file, and also import other style files */
+/* === styles.css (global) === */
+
+/* Bootstrap ya entra desde angular.json — NO volver a importarlo aquí */
+
+/* Base */
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f4f6f8;
+  color: #212529;
+}
+
+/* Títulos genéricos de formularios (compat) */
+.titulo {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #1f2937;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: .5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Formularios */
+.formulario-colaborador {
+  background-color: #fff;
+  border-radius: .5rem;
+  box-shadow: 0 4px 8px rgba(0,0,0,.05);
+}
+
+fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+legend {
+  color: #374151;
+}
+
+/* Inputs y ng-select */
+input.form-control,
+.ng-select.ng-custom .ng-select-container {
+  border-radius: .375rem;
+  border: 1px solid #ced4da;
+  transition: border-color .2s ease-in-out, box-shadow .2s ease-in-out;
+}
+
+  input.form-control:focus,
+  .ng-select.ng-custom.ng-select-focused .ng-select-container {
+    border-color: var(--brand-400, #49A6DD);
+    box-shadow: 0 0 0 .2rem rgba(4, 119, 191, .25); /* #0477BF con alpha */
+  }
+
+/* Botones Bootstrap con paleta de marca */
+button.btn-primary,
+.btn.btn-primary {
+  background-color: var(--primary); /* #0477BF */
+  border-color: var(--primary);
+  font-weight: 500;
+  padding: .5rem 1.25rem;
+  border-radius: .375rem;
+}
+
+  button.btn-primary:hover,
+  .btn.btn-primary:hover {
+    background-color: #0366A3;
+    border-color: #0366A3;
+  }
+
+button.btn-outline-secondary,
+.btn.btn-outline-secondary {
+  border-color: #6c757d;
+  color: #6c757d;
+}
+
+  button.btn-outline-secondary:hover,
+  .btn.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    color: #fff;
+  }
+
+/* Tablas */
+.table {
+  font-size: .95rem;
+}
+
+  .table th {
+    white-space: nowrap;
+  }
+
+  .table td {
+    vertical-align: middle;
+  }
+
+.table-responsive {
+  border-radius: .5rem;
+  overflow: hidden;
+}
+
+/* Modal */
+.custom-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0,0,0,.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1050;
+}
+
+.custom-modal {
+  background-color: #fff;
+  border-radius: .5rem;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 10px 25px rgba(0,0,0,.1);
+  overflow: hidden;
+}
+
+.custom-modal-header, .custom-modal-footer {
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.custom-modal-body {
+  padding: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .titulo {
+    font-size: 1.5rem;
+  }
+
+  button.btn {
+    width: 100%;
+  }
+
+  .ng-select .ng-select-container {
+    font-size: .9rem;
+    border-radius: .375rem;
+    border: 1px solid #ced4da;
+  }
+
+  .ng-select .ng-placeholder {
+    color: #888;
+    font-style: italic;
+  }
+}
+/* Refuerzo en global: si alguna hoja externa pisa el fondo */
+.mat-toolbar.topbar {
+  background: linear-gradient(90deg, var(--brand-600), var(--brand-700)) !important;
+  color: var(--primary-contrast) !important;
+}
+
+  .mat-toolbar.topbar .mat-icon {
+    color: var(--primary-contrast) !important;
+  }
+/* === HERO TOPBAR con color protagonista === */
+mat-sidenav-content .mat-toolbar.topbar-hero {
+  background: linear-gradient(90deg, var(--brand-600), var(--brand-700)) !important;
+  color: var(--primary-contrast) !important;
+}
+
+  mat-sidenav-content .mat-toolbar.topbar-hero .mat-icon {
+    color: var(--primary-contrast) !important;
+  }
+/* Botón “Salir” con contraste en la barra */
+mat-sidenav-content .topbar-hero .btn-contrast {
+  background: transparent;
+  color: var(--primary-contrast);
+  border: 1px solid rgba(255,255,255,.7);
+  border-radius: 12px;
+  padding: 8px 14px;
+}
+
+  mat-sidenav-content .topbar-hero .btn-contrast:hover {
+    background: rgba(255,255,255,.12);
+    border-color: #fff;
+  }
+
+/* Pastilla de estado dentro del topbar */
+mat-sidenav-content .topbar-hero .topbar-pill {
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.28);
+  color: #fff;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  margin-right: 8px;
+}

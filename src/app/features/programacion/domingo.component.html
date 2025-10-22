@@ -1,0 +1,125 @@
+<ui-page-header title="Domingo"
+                [subtitle]="subtitle"
+                [actions]="true">
+  <div actions class="flex flex-wrap gap-2 ml-auto">
+    <button *ifRoles="['SUPERVISOR','ADMIN']"
+            mat-stroked-button
+            color="primary"
+            (click)="editarDomingo()">
+      <mat-icon class="mr-1">edit</mat-icon> Editar Domingo
+    </button>
+    <button mat-stroked-button color="accent" (click)="exportarExcel()" *ifRoles="['SUPERVISOR','ADMIN']">
+      <mat-icon class="mr-1">table_view</mat-icon> Exportar Excel
+    </button>
+  </div>
+</ui-page-header>
+
+<div class="pro-toolbar">
+  <!-- Izquierda -->
+  <div class="nav-group left">
+    <button mat-stroked-button (click)="cambiarDomingo(1)" aria-label="Domingo anterior">
+      <mat-icon>chevron_left</mat-icon> Domingo anterior
+    </button>
+  </div>
+
+  <!-- Centro (filtros) -->
+  <div class="filters center">
+    <mat-form-field appearance="outline">
+      <mat-icon matPrefix>search</mat-icon>
+      <input matInput [(ngModel)]="filtroTexto" placeholder="Máquina o puesto…" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-icon matPrefix>person_search</mat-icon>
+      <input matInput [(ngModel)]="filtroNombre" placeholder="Nombre…" />
+    </mat-form-field>
+  </div>
+
+  <!-- Derecha -->
+  <div class="nav-group right">
+    <button mat-stroked-button color="primary" (click)="cambiarDomingo(-1)" aria-label="Domingo siguiente">
+      Domingo siguiente <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
+</div>
+
+<mat-progress-bar *ngIf="isLoading" mode="indeterminate"></mat-progress-bar>
+
+<ng-container *ngIf="domingoActual">
+  <div class="table-shell card">
+    <div class="table-scroll">
+      <table class="table table-sm table-bordered text-center align-middle">
+        <thead class="table-head">
+          <tr>
+            <th class="sticky-col first-col">Máquina / Puesto</th>
+            <th *ngFor="let turno of turnos; trackBy: trackByTurno" class="text-nowrap">
+              {{ turno }}
+            </th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <!-- Fila de coordinadores -->
+          <tr class="coord-row">
+            <td class="sticky-col first-col"><strong>COORDINADOR</strong></td>
+            <td *ngFor="let turno of turnos; trackBy: trackByTurno">
+              <ng-container *ngIf="coordinadoresPorTurno[turno]; else noCoord">
+                <strong class="coord-name">{{ coordinadoresPorTurno[turno] }}</strong>
+              </ng-container>
+              <ng-template #noCoord>
+                <span class="text-muted">—</span>
+              </ng-template>
+            </td>
+          </tr>
+
+          <!-- Filas por máquina/puesto -->
+          <tr *ngFor="let grupo of maquinasFiltradas(); trackBy: trackByGrupo">
+            <td class="sticky-col first-col">
+              <ng-container *ngIf="esMaquina(grupo); else esPuesto">
+                <strong>{{ grupo }}</strong>
+              </ng-container>
+              <ng-template #esPuesto>
+                <span [class]="getBadgeClass(grupo)">{{ grupo }}</span>
+              </ng-template>
+            </td>
+
+            <td *ngFor="let turno of turnos; trackBy: trackByTurno" class="compacto-columna">
+              <ng-container *ngIf="getColaboradores(grupo, turno).length > 0; else sinAsignacion">
+                <div *ngFor="let col of getColaboradores(grupo, turno); trackBy: trackByCol" class="cell-person">
+                  <strong class="person-name">{{ col.nombre }}</strong>
+                  <span class="person-role">({{ col.puesto }})</span>
+                </div>
+              </ng-container>
+              <ng-template #sinAsignacion>
+                <span class="text-muted">—</span>
+              </ng-template>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</ng-container>
+
+<!-- Estados -->
+<div *ngIf="!isLoading && !domingoActual && !errorMessage" class="card mt-3 text-[var(--muted)]">
+  No hay información disponible para este domingo.
+</div>
+<div *ngIf="errorMessage" class="card mt-3 text-red-600">
+  {{ errorMessage }}
+</div>
+
+<!-- Footer / Density -->
+<div class="footer-actions">
+  <div class="footer-left"></div>
+
+  <div class="footer-center">
+    <mat-button-toggle-group class="density-toggle" [value]="density" (change)="setDensity($event.value)">
+      <mat-button-toggle value="comfortable" aria-label="Vista cómoda">Cómoda</mat-button-toggle>
+      <mat-button-toggle value="compact" aria-label="Vista compacta">Compacta</mat-button-toggle>
+      <mat-button-toggle value="ultra" aria-label="Vista ultra compacta">Ultra</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+
+  <div class="footer-right"></div>
+</div>

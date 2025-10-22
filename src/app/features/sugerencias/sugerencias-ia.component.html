@@ -1,0 +1,27 @@
+<h2>Sugerencias Inteligentes</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tipo</th>
+      <th>Colaborador</th>
+      <th>Razón</th>
+      <th>Sugerencia</th>
+      <th>Criticidad</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let s of sugerencias">
+      <td>{{ s.tipo }}</td>
+      <td>{{ s.colaborador?.nombre || '---' }}</td>
+      <td>{{ s.razon }}</td>
+      <td>{{ s.sugerencia }}</td>
+      <td>{{ s.criticidad }}</td>
+      <td>
+        <button (click)="aceptar(s.id)">Aceptar</button>
+        <button (click)="rechazar(s.id)">Rechazar</button>
+      </td>
+    </tr>
+  </tbody>
+</table>

@@ -1,0 +1,16 @@
+@use '@angular/material' as mat;
+
+// Mapa de tu paleta de marca
+$brand-palette: ( 50: #E6F2F9, 100: #CFE7F5, 200: #A9D6EF, 300: #78BEE6, 400: #49A6DD, 500: #238FD2, 600: #0477BF, // protagonista
+700: #0366A3, 800: #034F7D, 900: #023757, contrast: ( 50: #000, 100: #000, 200: #000, 300: #000, 400: #fff, 500: #fff, 600: #fff, 700: #fff, 800: #fff, 900: #fff, ), );
+
+// ⚠️ En v20 usa las funciones M2 con prefijo m2-
+$primary: mat.m2-define-palette($brand-palette, 600, 300, 800);
+$accent: mat.m2-define-palette(mat.$m2-blue-grey-palette, 200);
+$warn: mat.m2-define-palette(mat.$m2-red-palette);
+
+// Tema M2 claro
+$theme: mat.m2-define-light-theme(( color: ( primary: $primary, accent : $accent, warn : $warn, ), typography: mat.m2-define-typography-config(), density: 0, ));
+
+// Aplica el tema a todos los componentes
+@include mat.all-component-themes($theme);

@@ -1,0 +1,32 @@
+<!-- Componente navbar (común en todas las vistas) -->
+<app-navbar></app-navbar>
+
+<!-- Contenedor principal para las rutas -->
+<div class="container mt-4">
+  <router-outlet></router-outlet>
+
+  <div class="modal-backdrop fade show" *ngIf="mostrarModal"></div>
+
+  <div class="modal fade show d-block" tabindex="-1" *ngIf="mostrarModal">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content shadow-lg border-0 rounded-3">
+        <div class="modal-header bg-gradient bg-warning text-dark rounded-top-3">
+          <h5 class="modal-title d-flex align-items-center">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            Sesión cerrada
+          </h5>
+        </div>
+        <div class="modal-body text-center">
+          <p class="fs-6 text-muted">
+            Por seguridad, tu sesión se cerró automáticamente tras un período de inactividad.
+          </p>
+          <p class="fw-bold">Vuelve a iniciar sesión para continuar.</p>
+        </div>
+        <div class="modal-footer justify-content-center border-0">
+          <button class="btn btn-primary px-4" (click)="redirigirLogin()">Iniciar sesión</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

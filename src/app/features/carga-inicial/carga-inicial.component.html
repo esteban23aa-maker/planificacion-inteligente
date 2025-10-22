@@ -1,0 +1,97 @@
+<ui-page-header title="Carga inicial del sistema" [subtitle]="subtitle" [actions]="true">
+  <div actions class="flex flex-wrap gap-2 ml-auto"></div>
+</ui-page-header>
+
+<!-- ===== Panel principal con accesos ===== -->
+<div class="cards-grid">
+  <ng-container *ngFor="let e of entidades; trackBy: trackByRuta">
+    <!-- si no requiere rol, visible para todos -->
+    <mat-card class="quick-card" *ifRoles="e.adminOnly ? 'ADMIN' : []">
+      <mat-card-header>
+        <div mat-card-avatar class="icon-avatar">
+          <mat-icon>{{ e.icon }}</mat-icon>
+        </div>
+        <mat-card-title>{{ e.nombre }}</mat-card-title>
+        <mat-card-subtitle>
+          Crear/registrar {{ e.nombre.toLowerCase() }}
+        </mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        <p class="muted">
+          Crea los datos base requeridos para iniciar la planificación.
+        </p>
+      </mat-card-content>
+
+      <mat-card-actions class="actions-end">
+        <a mat-stroked-button color="primary" [routerLink]="e.ruta">
+          <mat-icon>add</mat-icon>
+          Crear {{ e.nombre }}
+        </a>
+      </mat-card-actions>
+    </mat-card>
+  </ng-container>
+</div>
+
+<!-- ===== Información/import ===== -->
+<mat-card class="info-card">
+  <mat-card-header>
+    <mat-card-title>Importación desde Excel</mat-card-title>
+    <mat-card-subtitle>Plantillas y estructura de columnas</mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+    <p class="muted">
+      En cada formulario encontrarás la estructura y las columnas requeridas
+      para importar correctamente cada entidad (colaboradores, puestos,
+      máquinas, turnos y roles).
+    </p>
+  </mat-card-content>
+</mat-card>
+
+<!-- ===== Peligro (Danger Zone) ===== -->
+<mat-card class="danger-card" *ifRoles="'ADMIN'">
+  <mat-card-header>
+    <mat-card-title>Zona peligrosa</mat-card-title>
+    <mat-card-subtitle>Acción irreversible</mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+    <p>
+      Esta acción <strong>eliminará todos los datos</strong> de la base de
+      configuración inicial. Úsala únicamente si necesitas reiniciar el sistema.
+    </p>
+  </mat-card-content>
+
+  <mat-card-actions class="actions-end">
+    <button mat-flat-button
+            color="warn"
+            (click)="eliminarTodo()"
+            matTooltip="Eliminar todos los datos">
+      <mat-icon>delete_forever</mat-icon>
+      Eliminar todos los datos
+    </button>
+  </mat-card-actions>
+</mat-card>
+
+<!-- Mensaje visible para usuarios sin rol ADMIN -->
+<mat-card class="info-card muted small" *ifRoles="['SUPERVISOR']">
+  <mat-card-content>
+    Requiere rol <strong>ADMIN</strong> para acceder a Esta zona
+  </mat-card-content>
+</mat-card>
+
+<!-- ===== Resultado ===== -->
+<div *ngIf="mensaje" class="result-card" [class.ok]="exito" [class.err]="!exito">
+  <mat-icon class="mr-1">{{ exito ? 'check_circle' : 'error' }}</mat-icon>
+  <span>{{ mensaje }}</span>
+</div>
+
+<!-- ===== Overlay pantalla completa ===== -->
+<div *ngIf="fullscreenLoading"
+     class="fullscreen-loader"
+     aria-live="assertive"
+     aria-busy="true">
+  <div class="loader-orbit" role="progressbar" aria-label="Procesando">
+    <div class="ball"></div>
+  </div>
+  <div class="loader-text">Procesando…</div>
+</div>

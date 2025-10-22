@@ -1,0 +1,30 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-4">
+  <a class="navbar-brand" routerLink="/">Planificación</a>
+  <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+
+  <div class="collapse navbar-collapse" id="navbarNav">
+    <ul class="navbar-nav me-auto">
+      <li class="nav-item"><a class="nav-link" routerLink="/dashboard" routerLinkActive="active">Inicio</a></li>
+      <li class="nav-item" *ngIf="hasRole('USER','SUPERVISOR','ADMIN')"><a class="nav-link" routerLink="/programacion" routerLinkActive="active">Programación Semanal</a></li>
+      <li class="nav-item" *ngIf="hasRole('USER','SUPERVISOR','ADMIN')"><a class="nav-link" routerLink="/domingo" routerLinkActive="active">Domingos</a></li>
+      <li class="nav-item" *ngIf="hasRole('USER','SUPERVISOR','ADMIN')"><a class="nav-link" routerLink="/descansos-y1" routerLinkActive="active">Compensatorios</a></li>
+      <li class="nav-item" *ngIf="hasRole('USER','SUPERVISOR','ADMIN')"><a class="nav-link" routerLink="/descansos-y2" routerLinkActive="active">Reducción</a></li>
+      <li class="nav-item" *ngIf="hasRole('SUPERVISOR','ADMIN')"><a class="nav-link" routerLink="/sugerencias" routerLinkActive="active">Sugerencias IA</a></li>
+      <li class="nav-item" *ngIf="hasRole('SUPERVISOR','ADMIN')"><a class="nav-link" routerLink="/colaboradores" routerLinkActive="active">Colaboradores</a></li>
+      <li class="nav-item" *ngIf="hasRole('SUPERVISOR','ADMIN')"><a class="nav-link" routerLink="/historial" routerLinkActive="active">Historial</a></li>
+      <li class="nav-item" *ngIf="hasRole('ADMIN')"><a class="nav-link" routerLink="/carga-inicial" routerLinkActive="active">Carga Inicial</a></li>
+    </ul>
+
+
+    <ng-container *ngIf="(session$ | async) as s; else loginBtn">
+      <span class="navbar-text me-3">{{ s.username }}</span>
+      <button class="btn btn-outline-light" (click)="logout()">Salir</button>
+    </ng-container>
+    <ng-template #loginBtn>
+      <a class="btn btn-outline-light" routerLink="/login">Ingresar</a>
+    </ng-template>
+  </div>
+</nav>

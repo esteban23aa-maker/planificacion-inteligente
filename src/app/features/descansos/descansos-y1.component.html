@@ -1,0 +1,119 @@
+<ui-page-header title="Descansos compensatorios" [subtitle]="subtitle" [actions]="true">
+  <div actions class="flex flex-wrap gap-2 ml-auto">
+    <button *ifRoles="['SUPERVISOR','ADMIN']"
+            mat-stroked-button (click)="irAEdicionY1()">
+      <mat-icon class="mr-1">edit_calendar</mat-icon> Ir a edición de compensatorios
+    </button>
+
+    <ng-container *ifRoles="['ADMIN','SUPERVISOR']">
+      <button mat-stroked-button color="primary" (click)="generarDescansos()">
+        <mat-icon class="mr-1">auto_mode</mat-icon> Regenerar compensatorios
+      </button>
+      <button mat-stroked-button color="warn" (click)="eliminarDescansos()">
+        <mat-icon class="mr-1">delete_forever</mat-icon> Eliminar compensatorios
+      </button>
+      <button mat-stroked-button color="accent" (click)="exportarExcel()" *ifRoles="['SUPERVISOR','ADMIN']">
+        <mat-icon class="mr-1">table_view</mat-icon> Exportar Excel
+      </button>
+    </ng-container>
+  </div>
+</ui-page-header>
+
+<!-- Toolbar -->
+<div class="pro-toolbar">
+  <!-- Izquierda: navegación -->
+  <div class="nav-group left">
+    <button mat-stroked-button (click)="irAnterior()" [disabled]="!habilitaAnterior">
+      <mat-icon>chevron_left</mat-icon> Semana anterior
+    </button>
+  </div>
+
+  <!-- Centro: filtros -->
+  <div class="filters center">
+    <mat-form-field appearance="outline">
+      <mat-icon matPrefix>group</mat-icon>
+      <input matInput [(ngModel)]="filtroReemplazo" placeholder="Filtrar reemplazo…" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-icon matPrefix>person_search</mat-icon>
+      <input matInput [(ngModel)]="filtroNombre" placeholder="Filtrar colaborador…" />
+    </mat-form-field>
+  </div>
+
+  <!-- Derecha: navegación -->
+  <div class="nav-group right">
+    <button mat-stroked-button color="primary" (click)="irSiguiente()" [disabled]="!habilitaSiguiente">
+      Semana siguiente <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
+</div>
+
+<mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
+
+<!-- Calendario -->
+<div class="table-shell card" *ngIf="!loading">
+  <div class="table-scroll">
+    <table class="table table-bordered align-middle text-center">
+      <thead class="table-head">
+        <tr>
+          <th class="sticky-col first-col">Reemplazo</th>
+          <th *ngFor="let col of calendarCols; trackBy: trackByCol"
+              [class.today-col]="isToday(col.iso)">
+            <div class="th-line1">{{ col.label }}</div>
+            <div class="th-line2">{{ col.iso }}</div>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of filteredRows(); trackBy: trackByRow">
+          <td class="sticky-col first-col">
+            <strong class="reemplazo-name">{{ row.reemplazo }}</strong>
+          </td>
+
+          <td *ngFor="let col of calendarCols; trackBy: trackByCol"
+              [class.today-col]="isToday(col.iso)">
+            <ng-container *ngIf="row.cells[col.iso] as cell; else empty">
+              <div *ngFor="let g of cell.groups" class="cell-group">
+                <div class="group-meta">
+                  <span class="chip">{{ g.puesto }}</span>
+                  <span class="dot">•</span>
+                  <span class="chip alt">{{ g.maquina }}</span>
+                  <span class="dot">•</span>
+                  <span class="chip tone">{{ g.turno }}</span>
+                </div>
+                <div class="group-people">
+                  <span class="person" *ngFor="let c of g.colaboradores; let last = last">
+                    {{ c }}<span *ngIf="!last">, </span>
+                  </span>
+                </div>
+              </div>
+            </ng-container>
+            <ng-template #empty>—</ng-template>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Footer / Density -->
+<div class="footer-actions">
+  <div class="footer-left"></div>
+  <div class="footer-center">
+    <mat-button-toggle-group class="density-toggle" [value]="density" (change)="setDensity($event.value)">
+      <mat-button-toggle value="comfortable">Cómoda</mat-button-toggle>
+      <mat-button-toggle value="compact">Compacta</mat-button-toggle>
+      <mat-button-toggle value="ultra">Ultra</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+  <div class="footer-right"></div>
+</div>
+
+<!-- Overlay pantalla completa (generar/eliminar) -->
+<div *ngIf="fullscreenLoading" class="fullscreen-loader" aria-live="assertive" aria-busy="true">
+  <div class="loader-orbit" role="progressbar" aria-label="Procesando">
+    <div class="ball"></div>
+  </div>
+  <div class="loader-text">Procesando…</div>
+</div>

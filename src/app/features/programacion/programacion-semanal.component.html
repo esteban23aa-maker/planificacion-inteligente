@@ -1,0 +1,157 @@
+<ui-page-header title="Programación semanal" [subtitle]="subtitle" [actions]="true">
+  <div actions class="flex flex-wrap gap-2 ml-auto">
+    <button *ifRoles="'ADMIN'" mat-stroked-button color="warn" (click)="eliminarTodo()">Limpiar semanas</button>
+    <button *ifRoles="['SUPERVISOR','ADMIN']" mat-flat-button color="primary" (click)="confirmarRegenerarSemana()">
+      <mat-icon class="mr-1">autorenew</mat-icon> Regenerar
+    </button>
+    <button mat-stroked-button color="accent" (click)="exportarExcel()" *ifRoles="['SUPERVISOR','ADMIN']">
+      <mat-icon class="mr-1">table_view</mat-icon> Exportar Excel
+    </button>
+  </div>
+</ui-page-header>
+
+<div class="pro-toolbar">
+  <!-- Zona izquierda -->
+  <div class="nav-group left">
+    <button mat-stroked-button color="primary" (click)="cambiarSemana(-1)">
+      ← Semana anterior
+    </button>
+  </div>
+
+  <!-- Zona centro (filtros) -->
+  <div class="filters center">
+    <mat-form-field appearance="outline">
+      <mat-icon matPrefix>search</mat-icon>
+      <input matInput [(ngModel)]="filtroTexto" placeholder="Máquina o puesto…" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-icon matPrefix>person_search</mat-icon>
+      <input matInput [(ngModel)]="filtroNombre" placeholder="Nombre…" />
+    </mat-form-field>
+  </div>
+
+  <!-- Zona derecha -->
+  <div class="nav-group right">
+    <button mat-stroked-button (click)="cambiarSemana(1)">
+      Semana siguiente →
+    </button>
+  </div>
+</div>
+
+<mat-progress-bar *ngIf="cargando" mode="indeterminate"></mat-progress-bar>
+
+<div class="table-shell card">
+  <div class="table-scroll">
+    <table class="table table-sm table-bordered text-center align-middle">
+      <thead class="table-head">
+        <tr>
+          <th class="sticky-col first-col">Máquina / Puesto</th>
+          <th *ngFor="let turno of turnos" class="text-nowrap">{{ turno }}</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <!-- Coordinadores -->
+        <tr class="coord-row">
+          <td class="sticky-col first-col"><strong>COORDINADOR</strong></td>
+
+          <td *ngFor="let turno of turnos">
+            <ng-container *ngIf="coordinadoresPorTurno[turno] as coord">
+              <ng-container *ngIf="modoEdicionTurnos; else modoLectura">
+                <!-- MatSelect compacto, overlay elegante -->
+                <mat-form-field appearance="outline" class="coordinator-select-field">
+                  <mat-select [(ngModel)]="turnosEditados[coord]" panelClass="mselect-panel">
+                    <mat-option *ngFor="let t of turnos" [value]="t">
+                      <mat-icon class="opt-ic">schedule</mat-icon>
+                      {{ t }}
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+              </ng-container>
+
+              <ng-template #modoLectura>
+                <span class="coord-name">{{ coord }}</span>
+                <button *ifRoles="['SUPERVISOR','ADMIN']" mat-stroked-button color="primary" class="mini-btn" (click)="activarModoCambioTurnos()">✏</button>
+              </ng-template>
+            </ng-container>
+
+            <div *ngIf="!coordinadoresPorTurno[turno]" class="text-muted">—</div>
+          </td>
+        </tr>
+
+        <!-- Máquinas y puestos -->
+        <tr *ngFor="let maquina of maquinasFiltradas()">
+          <td class="sticky-col first-col">
+            <ng-container *ngIf="esMaquina(maquina); else esPuesto">
+              <strong>{{ maquina }}</strong>
+            </ng-container>
+            <ng-template #esPuesto>
+              <span [class]="getBadgeClass(maquina)">{{ maquina }}</span>
+            </ng-template>
+          </td>
+
+          <td *ngFor="let turno of turnos" class="compacto-columna">
+            <ng-container *ngIf="getColaboradores(maquina, turno).length > 0; else sinAsignacion">
+              <div *ngFor="let col of getColaboradores(maquina, turno)" class="cell-person">
+                <strong class="person-name">
+                  {{ col.colaboradorNombre }}
+                  <i *ngIf="col.tieneTurnoFijo" class="bi bi-lock-fill text-primary ms-1" title="Turno fijo"></i>
+                </strong>
+                <span class="person-role">({{ col.puestoNombre }})</span>
+              </div>
+            </ng-container>
+            <ng-template #sinAsignacion>
+              <span class="text-muted">—</span>
+            </ng-template>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="footer-actions">
+  <!-- Zona izquierda -->
+  <div class="footer-left">
+    <button *ifRoles="'ADMIN'"
+            mat-stroked-button color="warn" class="mr-2"
+            (click)="eliminarTodoSistema()">
+      Eliminar todas las programaciones
+    </button>
+  </div>
+
+  <!-- Zona centro (density toggle) -->
+  <div class="footer-center">
+    <mat-button-toggle-group class="density-toggle" [value]="density" (change)="setDensity($event.value)">
+      <mat-button-toggle value="comfortable" aria-label="Vista cómoda">Cómoda</mat-button-toggle>
+      <mat-button-toggle value="compact" aria-label="Vista compacta">Compacta</mat-button-toggle>
+      <mat-button-toggle value="ultra" aria-label="Vista ultra compacta">Ultra</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+
+  <!-- Zona derecha -->
+  <div class="footer-right">
+    <ng-container *ifRoles="['SUPERVISOR','ADMIN']">
+      <button *ngIf="!modoEdicionTurnos"
+              mat-stroked-button color="primary"
+              (click)="activarModoCambioTurnos()">
+        ✏ Cambiar turno de coordinadores
+      </button>
+    </ng-container>
+    <div *ngIf="modoEdicionTurnos" class="inline-flex gap-2">
+      <button mat-stroked-button (click)="modoEdicionTurnos = false">Cancelar</button>
+      <ng-container *ifRoles="['SUPERVISOR','ADMIN']">
+        <button mat-flat-button color="primary" (click)="guardarCambiosTurnos()">Guardar</button>
+      </ng-container>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay pantalla completa -->
+<div *ngIf="fullscreenLoading" class="fullscreen-loader" aria-live="assertive" aria-busy="true">
+  <div class="loader-orbit" role="progressbar" aria-label="Generando semana">
+    <div class="ball"></div>
+  </div>
+  <div class="loader-text">Generando semana…</div>
+</div>

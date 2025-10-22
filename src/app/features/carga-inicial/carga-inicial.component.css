@@ -1,0 +1,282 @@
+/* ===== Layout / densidad ===== */
+.carga-inicial-page {
+  --gap: 12px;
+}
+
+.density-toggle {
+  margin-left: 8px;
+}
+
+/* ===== Grid de tarjetas ===== */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--gap);
+  margin-bottom: 12px;
+}
+
+.quick-card .icon-avatar {
+  background: #eaf2ff;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+  .quick-card .icon-avatar mat-icon {
+    color: #1e40af;
+  }
+
+.muted {
+  color: #6b7280;
+}
+
+.small {
+  font-size: .85rem;
+}
+
+/* Alineación final sin usar el atributo [align] */
+.actions-end {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ===== Tarjetas informativas ===== */
+.info-card, .danger-card {
+  margin-bottom: 12px;
+}
+
+/* ===== Resultado ===== */
+.result-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-top: 8px;
+  border: 1px solid transparent;
+}
+
+  .result-card.ok {
+    background: #ecfdf5;
+    color: #065f46;
+    border-color: #a7f3d0;
+  }
+
+  .result-card.err {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #fecaca;
+  }
+
+/* ===== Overlay pantalla completa ===== */
+.fullscreen-loader {
+  position: fixed;
+  inset: 0;
+  background: rgba(9,13,20,.6);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  z-index: 1000000;
+}
+
+.loader-orbit {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  position: relative;
+  animation: orbit-rotate 1.1s linear infinite;
+  border: 2px dashed rgba(255,255,255,.25);
+}
+
+  .loader-orbit .ball {
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(255,255,255,.18), 0 0 16px rgba(255,255,255,.7);
+  }
+
+@keyframes orbit-rotate {
+  to {
+    transform: rotate(360deg)
+  }
+}
+
+.loader-text {
+  margin-top: 14px;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: .2px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.35);
+}
+/* ===== Tarjetas azules tipo "estructura" ===== */
+.quick-card {
+  /* Compatibles con Angular Material (MDC tokens) + fallback */
+  --mdc-elevated-card-container-color: var(--brand-50, #E6F2F9);
+  --mdc-outlined-card-container-color: var(--brand-50, #E6F2F9);
+  background: var(--brand-50, #E6F2F9);
+  border: 1px solid var(--brand-100, #CFE7F5);
+  border-radius: var(--radius-xl, 20px);
+  box-shadow: var(--elev-1, 0 4px 12px rgba(0,0,0,.06));
+  transition: box-shadow .18s ease, transform .12s ease;
+}
+
+  .quick-card:hover {
+    box-shadow: var(--elev-2, 0 10px 24px rgba(0,0,0,.08));
+    transform: translateY(-1px);
+  }
+
+  /* Encabezado y tipografías dentro de la tarjeta */
+  .quick-card .mat-mdc-card-header {
+    padding-bottom: .5rem;
+  }
+
+  .quick-card .mat-mdc-card-title {
+    color: var(--brand-800, #034F7D);
+    font-weight: 700;
+  }
+
+  .quick-card .mat-mdc-card-subtitle {
+    color: var(--brand-700, #0366A3);
+    font-weight: 600;
+  }
+
+  /* Avatar del icono ya existente, con mejor contraste sobre el fondo azul */
+  .quick-card .icon-avatar {
+    background: var(--brand-100, #CFE7F5);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+  }
+
+    .quick-card .icon-avatar mat-icon {
+      color: var(--brand-800, #034F7D);
+    }
+
+  /* Botón de acción dentro de la tarjeta */
+  .quick-card .mat-mdc-card-actions {
+    border-top: 1px dashed var(--brand-100, #CFE7F5);
+    margin-top: .5rem;
+    padding-top: .5rem;
+  }
+
+  .quick-card .mat-mdc-outlined-button:not(:disabled) {
+    border-color: var(--brand-300, #78BEE6);
+  }
+
+/* ===== Resto tal como lo tenías ===== */
+.carga-inicial-page {
+  --gap: 12px;
+}
+
+.density-toggle {
+  margin-left: 8px;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--gap);
+  margin-bottom: 12px;
+}
+
+.muted {
+  color: #6b7280;
+}
+
+.small {
+  font-size: .85rem;
+}
+
+.actions-end {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.info-card, .danger-card {
+  margin-bottom: 12px;
+}
+
+/* Opcional: también puedes darles fondo suave a las informativas */
+.info-card {
+  background: var(--neutral-50, #f6f7f9);
+  border: 1px solid var(--neutral-200, #e2e6eb);
+}
+
+/* y a la zona peligrosa un tono sutil */
+.danger-card {
+  background: #fff7f7;
+  border: 1px solid #ffd4d4;
+}
+
+.result-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-top: 8px;
+  border: 1px solid transparent;
+}
+
+  .result-card.ok {
+    background: #ecfdf5;
+    color: #065f46;
+    border-color: #a7f3d0;
+  }
+
+  .result-card.err {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #fecaca;
+  }
+
+/* Overlay full-screen (igual que antes) */
+.fullscreen-loader {
+  position: fixed;
+  inset: 0;
+  background: rgba(9,13,20,.6);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  z-index: 1000000;
+}
+
+.loader-orbit {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  position: relative;
+  animation: orbit-rotate 1.1s linear infinite;
+  border: 2px dashed rgba(255,255,255,.25);
+}
+
+  .loader-orbit .ball {
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(255,255,255,.18), 0 0 16px rgba(255,255,255,.7);
+  }
+
+@keyframes orbit-rotate {
+  to {
+    transform: rotate(360deg)
+  }
+}
+
+.loader-text {
+  margin-top: 14px;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: .2px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.35);
+}

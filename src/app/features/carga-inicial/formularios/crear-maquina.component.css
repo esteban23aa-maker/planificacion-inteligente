@@ -1,0 +1,142 @@
+/* ===== Tokens locales (heredan de tu sistema) ===== */
+.crear-maquina-page {
+  --fs: .95rem;
+  --panel-bg: var(--bg);
+  --panel-fg: var(--fg);
+  --panel-border: var(--neutral-200);
+  --thead-bg: var(--neutral-50);
+}
+
+/* ===== Panel genérico (no pisamos .card global) ===== */
+.panel {
+  background: var(--panel-bg);
+  color: var(--panel-fg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--elev-1);
+  margin-bottom: 16px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+  .panel-head h3 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--neutral-800);
+  }
+
+.panel-body {
+  padding: 14px 16px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: .85rem;
+}
+
+/* ===== Form ===== */
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 900px) {
+  .grid-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.align-end {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.end-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+/* ===== Archivo/Excel ===== */
+.file-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ===== Tabla ===== */
+.table-wrap {
+  max-height: 65vh;
+  overflow: auto;
+  border-radius: 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs);
+}
+
+  .table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--thead-bg);
+    color: var(--neutral-800);
+    border-bottom: 1px solid var(--panel-border);
+    font-weight: 700;
+    padding: .65rem .5rem;
+    text-align: left;
+  }
+
+  .table td {
+    border-top: 1px solid var(--panel-border);
+    padding: .5rem;
+  }
+
+.text-end {
+  text-align: right;
+}
+
+.actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+/* Preview simple borders */
+.simple-preview th, .simple-preview td {
+  border: 1px solid var(--panel-border);
+}
+
+.simple-preview thead th {
+  background: var(--neutral-50);
+}
+
+/* Resaltado fila tras guardar/editar */
+tr.resaltado {
+  animation: rowHighlight 1.6s ease-out;
+}
+
+@keyframes rowHighlight {
+  0% {
+    background: #e6fff7;
+  }
+
+  100% {
+    background: transparent;
+  }
+}

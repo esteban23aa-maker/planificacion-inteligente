@@ -1,0 +1,13 @@
+<h2 mat-dialog-title>Sesión inactiva</h2>
+
+<mat-dialog-content>
+  <p>Tu sesión se cerrará automáticamente por inactividad.</p>
+  <p>¿Deseas continuar conectado?</p>
+  <p class="countdown">Cierre en {{ countdown }} segundos…</p>
+</mat-dialog-content>
+
+<mat-dialog-actions class="justify-end">
+  <button mat-stroked-button color="warn" (click)="logout()">Cerrar sesión</button>
+  <button mat-flat-button color="primary" (click)="stay()">Seguir conectado</button>
+</mat-dialog-actions>
+

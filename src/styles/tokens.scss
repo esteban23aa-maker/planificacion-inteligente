@@ -1,0 +1,126 @@
+
+/*C:\Proyectos\planificacion-inteligente\src\styles\tokens.scss*/
+
+:root {
+  /* Brand – #0477BF como protagonista */
+  --brand-50: #E6F2F9;
+  --brand-100: #CFE7F5;
+  --brand-200: #A9D6EF;
+  --brand-300: #78BEE6;
+  --brand-400: #49A6DD;
+  --brand-500: #238FD2;
+  --brand-600: #0477BF; /* PROTAGONISTA */
+  --brand-700: #0366A3;
+  --brand-800: #034F7D;
+  --brand-900: #023757;
+  /* Neutrales */
+  --neutral-50: #f6f7f9;
+  --neutral-100: #eff1f4;
+  --neutral-200: #e2e6eb;
+  --neutral-300: #ccd3dc;
+  --neutral-400: #a8b1bd;
+  --neutral-500: #8692a3;
+  --neutral-600: #677386;
+  --neutral-700: #4d5668;
+  --neutral-800: #394250;
+  --neutral-900: #242b36;
+  /* Semánticos base */
+  --bg: #ffffff;
+  --fg: var(--neutral-900);
+  --muted: var(--neutral-600);
+  --primary: var(--brand-600);
+  --primary-contrast: #ffffff;
+  /* Accesibilidad/focus */
+  --ring-primary: 0 0 0 3px rgba(4,119,191,.25);
+  /* Radius y sombras */
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --elev-1: 0 4px 12px rgba(0,0,0,.06);
+  --elev-2: 0 10px 24px rgba(0,0,0,.08);
+}
+
+:root.dark {
+  --bg: #0f1720;
+  --fg: #e8eef6;
+  --muted: #a8b1bd;
+  --elev-1: 0 6px 18px rgba(0,0,0,.35);
+  --elev-2: 0 16px 36px rgba(0,0,0,.45);
+}
+
+/* ===== Helpers con protagonismo brand ===== */
+a {
+  color: var(--primary);
+}
+
+a:hover {
+  color: var(--brand-700);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--primary);
+  color: var(--primary-contrast);
+  box-shadow: var(--elev-1);
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.03);
+}
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: 9px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--brand-200);
+  color: var(--brand-700);
+  background: #fff;
+}
+
+.btn-outline:hover {
+  background: var(--brand-50);
+}
+
+.card {
+  background: var(--bg);
+  color: var(--fg);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  box-shadow: var(--elev-1);
+}
+
+.text-brand {
+  color: var(--primary) !important;
+}
+
+.bg-brand-50 {
+  background: var(--brand-50) !important;
+}
+
+.border-brand {
+  border-color: var(--primary) !important;
+}
+
+.focus-brand:focus {
+  outline: none;
+  box-shadow: var(--ring-primary);
+}
+
+/* Badges/Chips (útiles para listas y estados) */
+.badge-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--brand-50);
+  color: var(--brand-800);
+  border: 1px solid var(--brand-100);
+}

@@ -1,0 +1,110 @@
+<ui-page-header title="Crear colaboradores">
+  <div actions class="flex flex-wrap gap-2 ml-auto">
+  </div>
+</ui-page-header>
+
+<mat-progress-bar *ngIf="cargando" mode="indeterminate"></mat-progress-bar>
+
+<!-- ===== Formulario ===== -->
+<div class="card form-card" #formularioRef>
+  <div class="card-header">
+    <strong>{{ editando ? 'Editar colaborador' : 'Nuevo colaborador' }}</strong>
+    <span class="muted" *ngIf="editando">Modo edición</span>
+  </div>
+
+  <div class="card-body">
+    <form (ngSubmit)="guardar()" class="formulario-colaborador">
+      <div class="grid-2-cols">
+        <mat-form-field appearance="fill" class="dense-field">
+          <mat-label>Nombre</mat-label>
+          <input matInput [(ngModel)]="nuevo.nombre" name="nombre" required />
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="dense-field">
+          <mat-label>Documento</mat-label>
+          <input matInput [(ngModel)]="nuevo.documento" name="documento" required />
+        </mat-form-field>
+      </div>
+
+      <div class="end-actions">
+        <button mat-flat-button color="primary" type="submit" [disabled]="guardando">
+          <mat-icon *ngIf="!guardando">save</mat-icon>
+          <mat-icon *ngIf="guardando" class="spin">autorenew</mat-icon>
+          {{ guardando ? 'Guardando…' : (editando ? 'Actualizar' : 'Guardar') }}
+        </button>
+        <button mat-stroked-button type="button" (click)="cancelar()" [disabled]="guardando">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== Importar desde Excel ===== -->
+<div class="card import-card">
+  <div class="card-header">
+    <strong>Importar desde Excel</strong>
+    <span class="muted">Plantilla: columnas <b>Nombre</b>, <b>Documento</b></span>
+  </div>
+  <div class="card-body">
+    <div class="file-row">
+      <input type="file" (change)="subirExcel($event)" accept=".xlsx,.xls" />
+      <button mat-stroked-button color="primary" (click)="cargarDesdeExcel()" [disabled]="!cargadosDesdeExcel.length">
+        <mat-icon>file_upload</mat-icon>
+        Cargar {{ cargadosDesdeExcel.length || 0 }} colaboradores
+      </button>
+    </div>
+
+    <div class="preview" *ngIf="cargadosDesdeExcel.length">
+      <div class="muted mb-1">Vista previa (máx. 10 filas):</div>
+      <table class="simple-preview">
+        <thead>
+          <tr><th>Nombre</th><th>Documento</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of cargadosDesdeExcel | slice:0:10">
+            <td>{{ r.nombre }}</td>
+            <td>{{ r.documento }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Tabla ===== -->
+<div class="table-shell card">
+  <div class="table-scroll">
+    <mat-table [dataSource]="dataSource" matSort class="table">
+      <!-- Nombre -->
+      <ng-container matColumnDef="nombre">
+        <mat-header-cell *matHeaderCellDef mat-sort-header>Nombre</mat-header-cell>
+        <mat-cell *matCellDef="let row">{{ row.nombre }}</mat-cell>
+      </ng-container>
+
+      <!-- Documento -->
+      <ng-container matColumnDef="documento">
+        <mat-header-cell *matHeaderCellDef mat-sort-header>Documento</mat-header-cell>
+        <mat-cell *matCellDef="let row">{{ row.documento }}</mat-cell>
+      </ng-container>
+
+      <!-- Acciones -->
+      <ng-container matColumnDef="acciones">
+        <mat-header-cell *matHeaderCellDef>Acciones</mat-header-cell>
+        <mat-cell *matCellDef="let row">
+          <div class="actions">
+            <button mat-stroked-button color="primary" (click)="editar(row)" matTooltip="Editar">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-stroked-button color="warn" (click)="eliminar(row.id!)" matTooltip="Eliminar">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </mat-cell>
+      </ng-container>
+
+      <mat-header-row *matHeaderRowDef="displayedColumns" class="table-head"></mat-header-row>
+      <mat-row *matRowDef="let row; columns: displayedColumns;" [attr.data-id]="row.id"></mat-row>
+    </mat-table>
+  </div>
+
+  <mat-paginator [pageSize]="25" [pageSizeOptions]="[10,25,50,100]" showFirstLastButtons></mat-paginator>
+</div>

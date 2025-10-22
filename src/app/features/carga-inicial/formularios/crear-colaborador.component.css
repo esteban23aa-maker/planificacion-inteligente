@@ -1,0 +1,154 @@
+/* ===== Variables / densidad ===== */
+.crear-colaborador-page {
+  --fs: .95rem;
+  --fs-sub: .82rem;
+  --cell-py: .50rem;
+  --cell-px: .45rem;
+  --head-py: .65rem;
+
+  /* Integra con tu sistema (fallbacks neutros) */
+  --surface: var(--surface, #fff);
+  --panel-bg: var(--panel-bg, #fff);
+  --panel-border: var(--panel-border, #e5e7eb);
+  --panel-fg: var(--panel-fg, inherit);
+  --thead-bg: var(--thead-bg, #f9fafb);
+  --thead-fg: var(--thead-fg, inherit);
+}
+
+.crear-colaborador-page.density-compact {
+  --fs: .90rem;
+  --fs-sub: .78rem;
+  --cell-py: .36rem;
+  --cell-px: .34rem;
+  --head-py: .52rem;
+}
+
+.crear-colaborador-page.density-ultra {
+  --fs: .78rem;
+  --fs-sub: .70rem;
+  --cell-py: .24rem;
+  --cell-px: .22rem;
+  --head-py: .36rem;
+}
+
+.density-toggle { margin-left: 8px; }
+
+/* ===== Cards ===== */
+.card {
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  background: var(--panel-bg);
+  margin-bottom: 12px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .75rem 1rem;
+  background: var(--panel-bg); /* sin azul por defecto */
+  border-bottom: 1px solid var(--panel-border);
+  color: var(--panel-fg);
+  font-weight: 700;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+/* (Opcional) destacar una card concreta con azul */
+.card.use-brand .card-header {
+  background: var(--brand-50, #eef6ff);
+  border-bottom-color: var(--brand-100, #dbeafe);
+  color: var(--brand-900, #1e3a8a);
+}
+
+.card-body { padding: .75rem 1rem; }
+
+.muted { color: #6b7280; font-weight: 500; }
+.mb-1 { margin-bottom: .25rem; }
+
+/* ===== Form ===== */
+.formulario-colaborador { font-size: var(--fs); }
+
+.grid-2-cols {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+@media (min-width: 768px) {
+  .grid-2-cols { grid-template-columns: 1fr 1fr; }
+}
+
+.end-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+/* ===== Import Excel ===== */
+.import-card .file-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.simple-preview {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: .9rem;
+}
+.simple-preview th, .simple-preview td {
+  border: 1px solid var(--panel-border);
+  padding: 6px 8px;
+  text-align: left;
+}
+.simple-preview thead th { background: #f5f7fa; }
+
+/* ===== Tabla ===== */
+.table-shell.card {
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+.table-scroll { max-height: 65vh; overflow: auto; }
+.table { width: 100%; font-size: var(--fs); }
+
+/* Header sticky SIN azul */
+.table-head {
+  position: sticky; top: 0; z-index: 2;
+  background: var(--thead-bg);
+  color: var(--thead-fg);
+}
+.table-head th {
+  border-bottom: 1px solid var(--panel-border);
+  font-weight: 700;
+  padding: var(--head-py) .5rem;
+}
+
+.actions { display: inline-flex; gap: 6px; }
+
+/* Densidad explícita para celdas (si usas tablas Material, igual aplica) */
+.crear-colaborador-page.density-compact .mat-mdc-cell,
+.crear-colaborador-page.density-compact .mat-mdc-header-cell {
+  padding: .36rem .34rem !important;
+  font-size: .90rem;
+}
+.crear-colaborador-page.density-ultra .mat-mdc-cell,
+.crear-colaborador-page.density-ultra .mat-mdc-header-cell {
+  padding: .22rem .22rem !important;
+  font-size: .78rem;
+}
+
+/* ===== Highlight fila al guardar/editar ===== */
+tr.resaltado { animation: resaltadoFade 1.8s ease-out; }
+@keyframes resaltadoFade {
+  0% { background-color: #c9f7f5; }
+  100% { background-color: transparent; }
+}
+
+/* ===== Animación iconito ===== */
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

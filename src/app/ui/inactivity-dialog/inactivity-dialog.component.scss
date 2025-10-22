@@ -1,0 +1,23 @@
+:host {
+  display: block;
+}
+
+mat-dialog-content {
+  font-size: 14px;
+  color: var(--neutral-700);
+}
+
+.countdown {
+  margin-top: 8px;
+  font-weight: 600;
+  color: var(--brand-700);
+}
+
+mat-dialog-actions button {
+  min-width: 120px;
+}
+.countdown {
+  margin-top: 10px;
+  font-weight: 700;
+  color: var(--primary); // tu azul protagonista
+}

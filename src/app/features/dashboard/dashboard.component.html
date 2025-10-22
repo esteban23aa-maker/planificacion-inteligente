@@ -1,0 +1,81 @@
+<ui-page-header title="Dashboard Semanal" subtitle="Indicadores de programación y descansos"
+                [subtitle]="subtitle"
+                [actions]="true"></ui-page-header>
+
+<!-- Estado -->
+<div *ngIf="cargando" class="bg-blue-50 border border-blue-200 text-blue-600 rounded-xl px-4 py-3 mb-4">
+  Cargando datos...
+</div>
+<div *ngIf="error" class="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 mb-4">
+  {{ error }}
+</div>
+
+<!-- Métricas principales -->
+<div *ngIf="datos" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+  <ui-metric-card label="Colaboradores" [value]="datos.totalColaboradores"></ui-metric-card>
+  <ui-metric-card label="Máquinas" [value]="datos.totalMaquinas"></ui-metric-card>
+  <ui-metric-card label="Turnos Semanales" [value]="datos.totalTurnosSemana"></ui-metric-card>
+</div>
+
+<!-- Gráficos -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="card p-4">
+    <h5 class="text-center mb-4 font-medium">Distribución de Descansos</h5>
+    <ng-container *ngIf="hasDescansosData; else emptyDescansos">
+      <apx-chart [series]="descansosData"
+                 [chart]="donutChart"
+                 [labels]="['Descansos Y1','Descansos Y2']"
+                 [legend]="donutLegend"
+                 [dataLabels]="donutDataLabels"
+                 [stroke]="donutStroke"
+                 [plotOptions]="donutPlotOptions"
+                 [colors]="descansosColors">
+      </apx-chart>
+    </ng-container>
+    <ng-template #emptyDescansos>
+      <div class="min-h-[280px] grid place-items-center text-[var(--muted)]">
+        <div class="flex items-center gap-2">
+          <mat-icon>inbox</mat-icon>
+          <span>Sin datos para mostrar.</span>
+        </div>
+      </div>
+    </ng-template>
+  </div>
+
+  <div class="card p-4">
+    <h5 class="text-center mb-4 font-medium">Alertas vs Sugerencias</h5>
+    <ng-container *ngIf="hasAlertasData; else emptyAlertas">
+      <apx-chart [series]="alertasData"
+                 [chart]="donutChart"
+                 [labels]="['Alertas','Sugerencias IA']"
+                 [legend]="donutLegend"
+                 [dataLabels]="donutDataLabels"
+                 [stroke]="donutStroke"
+                 [plotOptions]="donutPlotOptions"
+                 [colors]="alertasColors">
+      </apx-chart>
+    </ng-container>
+    <ng-template #emptyAlertas>
+      <div class="min-h-[280px] grid place-items-center text-[var(--muted)]">
+        <div class="flex items-center gap-2">
+          <mat-icon>inbox</mat-icon>
+          <span>Sin alertas ni sugerencias.</span>
+        </div>
+      </div>
+    </ng-template>
+  </div>
+</div>
+
+<!-- Cambios recientes -->
+<div class="card p-6 mt-6">
+  <h4 class="mb-4 font-semibold">Cambios Recientes</h4>
+  <ui-data-table [columns]="[
+      { field: 'fechaHora',     header: 'Fecha' },
+      { field: 'tipoCambio',    header: 'Tipo' },
+      { field: 'descripcion',   header: 'Descripción' },
+      { field: 'realizadoPor',  header: 'Por' }
+    ]"
+                 [data]="historialCambios"
+                 emptyMessage="No hay cambios recientes registrados.">
+  </ui-data-table>
+</div>
