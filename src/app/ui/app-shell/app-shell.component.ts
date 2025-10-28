@@ -58,6 +58,7 @@ export class AppShellComponent {
     { label: 'Domingos', icon: 'event', path: '/domingo' },
     { label: 'Compensatorios', icon: 'work_history', path: '/descansos-y1' },
     { label: 'Reducción', icon: 'timelapse', path: '/descansos-y2' },
+    { label: 'Incidencias de reducción', icon: 'rule', path: '/admin/incidencias-y2', roles: ['ADMIN'] },
     { label: 'Sugerencias IA', icon: 'lightbulb', path: '/sugerencias', roles: ['ADMIN'] },
     { label: 'Colaboradores', icon: 'groups', path: '/colaboradores', roles: ['SUPERVISOR', 'ADMIN'] },
     { label: 'Historial', icon: 'history', path: '/historial', roles: ['SUPERVISOR', 'ADMIN'] },

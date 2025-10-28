@@ -1,0 +1,129 @@
+<ui-page-header title="Gestión manual de Incidencias Y2" [subtitle]="'Recomendaciones y aplicación controlada'">
+  <div actions class="flex flex-wrap gap-2 ml-auto">
+    <button mat-stroked-button (click)="cargarSemana()">
+      <mat-icon>refresh</mat-icon> Refrescar
+    </button>
+    <button mat-flat-button color="primary" (click)="aplicarLote()" [disabled]="totalPreparados() === 0">
+      <mat-icon>done_all</mat-icon> Aplicar lote ({{ totalPreparados() }})
+    </button>
+    <button mat-stroked-button (click)="limpiarSeleccion()" [disabled]="totalSeleccionados() === 0 && totalPreparados() === 0">
+      <mat-icon>clear_all</mat-icon> Limpiar
+    </button>
+  </div>
+</ui-page-header>
+
+<div class="card filters">
+  <div class="row">
+    <mat-form-field appearance="fill">
+      <mat-label>Domingo base</mat-label>
+      <input matInput
+             [matDatepicker]="picker"
+             [value]="filtro.get('domingoBase')?.value"
+             (dateChange)="filtro.get('domingoBase')!.setValue($event.value); cargarSemana()">
+      <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+      <mat-datepicker #picker startView="multi-year"></mat-datepicker>
+    </mat-form-field>
+
+    <form [formGroup]="filtro">
+      <mat-form-field appearance="fill" class="grow">
+        <mat-label>Buscar…</mat-label>
+        <input matInput placeholder="Nombre, motivo, turno, franja" formControlName="buscar">
+      </mat-form-field>
+    </form>
+  </div>
+</div>
+
+<mat-progress-bar *ngIf="loading()" mode="indeterminate"></mat-progress-bar>
+
+<div class="card table-wrap">
+  <table mat-table [dataSource]="dataSource" matSort>
+
+    <ng-container matColumnDef="sel">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let r">
+        <mat-checkbox (change)="toggleSeleccion(r, $event.checked)"
+                      [checked]="seleccionados().has(r.id)"></mat-checkbox>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="fecha">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Fecha</th>
+      <td mat-cell *matCellDef="let r">{{ r.fecha | date:'EEE d/MM' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="colaborador">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Colaborador</th>
+      <td mat-cell *matCellDef="let r">
+        <div class="col-nombre">{{ r.colaboradorNombre }}</div>
+        <div class="col-id">#{{ r.colaboradorId }}</div>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="grupo">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Grupo</th>
+      <td mat-cell *matCellDef="let r">{{ r.grupo }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="turno">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Turno</th>
+      <td mat-cell *matCellDef="let r">{{ r.turno || '—' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="franja">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Franja</th>
+      <td mat-cell *matCellDef="let r">{{ r.franja || '—' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="motivo">
+      <th mat-header-cell *matHeaderCellDef mat-sort-header>Motivo</th>
+      <td mat-cell *matCellDef="let r">
+        <span [matTooltip]="r.motivo">{{ r.motivo }}</span>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="candidatos">
+      <th mat-header-cell *matHeaderCellDef>Candidatos</th>
+      <td mat-cell *matCellDef="let r">
+        <!-- Chips informativos (no seleccionables) -->
+        <mat-chip-set *ngIf="r.candidatos?.length; else noCand">
+          <mat-chip *ngFor="let c of (r.candidatos || []).slice(0, 3)" [matTooltip]="c.razones?.join(' · ')">
+            {{ c.nombre }} ({{ c.puntaje }})
+          </mat-chip>
+          <mat-chip *ngIf="(r.candidatos?.length || 0) > 3">+{{ (r.candidatos!.length - 3) }}</mat-chip>
+        </mat-chip-set>
+        <ng-template #noCand>
+          <span class="muted">Sin precálculo</span>
+        </ng-template>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="acciones">
+      <th mat-header-cell *matHeaderCellDef>Acciones</th>
+      <td mat-cell *matCellDef="let r" class="acciones">
+        <!-- Abre la agenda semanal -->
+        <button mat-icon-button matTooltip="Abrir agenda semanal" (click)="abrirDialogoCandidatos(r)">
+          <mat-icon>calendar_month</mat-icon>
+        </button>
+
+        <!-- Aplica el request preparado para ESTA incidencia -->
+        <button mat-icon-button
+                color="primary"
+                matTooltip="Aplicar seleccionado"
+                (click)="aplicarIndividual(r)"
+                [disabled]="!pendingRequests().get(r.id)">
+          <mat-icon>check_circle</mat-icon>
+        </button>
+
+        <!-- Indicador si hay request preparado (opcional) -->
+        <span *ngIf="pendingRequests().get(r.id)" class="prepared-dot" aria-label="Preparado"></span>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="columnas"></tr>
+    <tr mat-row *matRowDef="let row; columns: columnas"></tr>
+  </table>
+
+  <mat-paginator [length]="dataSource.data.length"
+                 [pageSize]="10"
+                 [pageSizeOptions]="[10,20,50]"></mat-paginator>
+</div>

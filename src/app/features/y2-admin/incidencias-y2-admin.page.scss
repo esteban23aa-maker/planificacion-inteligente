@@ -1,0 +1,50 @@
+:host {
+  display: block;
+}
+
+.card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--neutral-200, #e5e7eb);
+  border-radius: 16px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.filters .row {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.table-wrap table {
+  width: 100%;
+}
+
+.col-nombre {
+  font-weight: 600;
+}
+
+.col-id {
+  font-size: 12px;
+  color: var(--neutral-500, #6b7280);
+}
+
+/* ÚNICO bloque .acciones */
+.acciones {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.muted {
+  color: var(--neutral-500, #6b7280);
+}
+
+.prepared-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--brand-600, #0477BF);
+  display: inline-block;
+}

@@ -1,13 +1,13 @@
 export const environment = {
   production: false,
-  apiUrl: 'https://invigorating-reverence-production.up.railway.app/api',  // <-- usa tu backend local
+  apiUrl: 'https://invigorating-reverence-production.up.railway.app/api',
   auth: {
     login: '/auth/login',
     refresh: '/auth/refresh',
-    logout: '/auth/logout'
+    logout: '/auth/logout',
   },
   security: {
     tokenHeader: 'Authorization',
-    tokenPrefix: 'Bearer '
-  }
-};
+    tokenPrefix: 'Bearer ',
+  },
+} as const;

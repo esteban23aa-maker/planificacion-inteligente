@@ -1,6 +1,6 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://invigorating-reverence-production.up.railway.app/api',  // <-- URL de Railway
+  apiUrl: 'https://invigorating-reverence-production.up.railway.app/api',
   auth: {
     login: '/auth/login',
     refresh: '/auth/refresh',
