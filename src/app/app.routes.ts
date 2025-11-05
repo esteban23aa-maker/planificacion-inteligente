@@ -27,6 +27,8 @@ export const routes: Routes = [
 
       { path: 'descansos-y1/edicion', loadComponent: () => import('./features/descansos/descansos-y1-edicion.component').then(m => m.DescansosY1EdicionComponent), canActivate: [roleGuard], data: { roles: ['SUPERVISOR', 'ADMIN'] } },
 
+      {path: 'descansos-y2/edicion', loadComponent: () => import('./features/descansos/descansos-y2-edicion.component').then(m => m.DescansosY2EdicionComponent), canActivate: [roleGuard], data: { roles: ['SUPERVISOR', 'ADMIN'] } },
+
       { path: 'descansos-y2', loadComponent: () => import('./features/descansos/descansos-y2.component').then(m => m.DescansosY2Component) },
 
       { path: 'admin/incidencias-y2', loadComponent: () => import('./features/y2-admin/incidencias-y2-admin.page').then(m => m.IncidenciasY2AdminPage) },

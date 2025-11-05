@@ -2,6 +2,7 @@ import { Component, OnInit, ViewEncapsulation, HostBinding, inject } from '@angu
 import { CommonModule, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, firstValueFrom } from 'rxjs';
+import { RouterModule } from '@angular/router';
 
 // Material
 import { MatButtonModule } from '@angular/material/button';
@@ -43,7 +44,7 @@ type Density = 'comfortable' | 'compact' | 'ultra';
     MatButtonModule, MatIconModule, MatSnackBarModule, MatProgressBarModule,
     MatFormFieldModule, MatInputModule, MatDialogModule, MatButtonToggleModule,
     // UI
-    PageHeaderComponent, IfRolesDirective
+    PageHeaderComponent, IfRolesDirective, RouterModule,
   ],
   templateUrl: './descansos-y2.component.html',
   styleUrls: ['./descansos-y2.component.css'],

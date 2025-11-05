@@ -3,6 +3,12 @@
                 [actions]="true">
   <div actions class="flex flex-wrap gap-2 ml-auto">
     <ng-container *ifRoles="['ADMIN','SUPERVISOR']">
+
+      <button mat-stroked-button color="primary"
+              [routerLink]="['/descansos-y2/edicion']"
+              [queryParams]="{ domingo: domingoActual }">
+        <mat-icon class="mr-1">edit</mat-icon> Editar reducción
+      </button>
       <button mat-stroked-button color="primary" (click)="generar()">
         <mat-icon class="mr-1">auto_mode</mat-icon> Generar reducciones
       </button>
