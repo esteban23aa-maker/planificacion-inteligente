@@ -1,19 +1,96 @@
-// C:\Proyectos\planificacion-inteligente\src\app\features\descansos\descansos-y2-edicion.component.scss
+/* ===== Form field “fill con borde” (sin notch) para evitar la raya ===== */
+.y2-edicion-page .ff-flat.mat-mdc-form-field-appearance-fill .mat-mdc-text-field-wrapper {
+  --mdc-filled-text-field-container-color: var(--bg, #fff);
+  --mdc-filled-text-field-disabled-container-color: #f3f4f6;
+  --mdc-filled-text-field-hover-state-layer-color: transparent;
+  --mdc-filled-text-field-active-indicator-color: transparent;
+  --mdc-filled-text-field-hover-active-indicator-color: transparent;
+  --mdc-filled-text-field-focus-active-indicator-color: transparent;
+  position: relative;
+  background: var(--bg, #fff);
+  box-shadow: none;
+}
+
+/* Quita overlays/ripples del fill */
+.y2-edicion-page .ff-flat.mat-mdc-form-field-appearance-fill .mat-mdc-form-field-focus-overlay {
+  background: transparent !important;
+}
+
+.y2-edicion-page .ff-flat.mat-mdc-form-field-appearance-fill .mdc-line-ripple {
+  display: none !important;
+}
+
+/* Dibuja un borde único (sin cortes) */
+.y2-edicion-page .ff-flat.mat-mdc-form-field-appearance-fill .mat-mdc-text-field-wrapper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--neutral-200, #e5e7eb);
+  border-radius: 6px;
+  pointer-events: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+/* Estados: hover / focus / error / disabled */
+.y2-edicion-page .ff-flat.mat-mdc-form-field-appearance-fill:hover .mat-mdc-text-field-wrapper::after {
+  border-color: var(--neutral-300, #d1d5db);
+}
+
+.y2-edicion-page .ff-flat.mat-mdc-form-field-appearance-fill.mat-focused .mat-mdc-text-field-wrapper::after {
+  border-color: var(--brand-500, #1976d2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-500) 18%, transparent);
+}
+
+.y2-edicion-page .ff-flat.mat-mdc-form-field-appearance-fill.mat-mdc-form-field-invalid .mat-mdc-text-field-wrapper::after {
+  border-color: var(--mat-error, #d32f2f);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mat-error) 18%, transparent);
+}
+
+.y2-edicion-page .ff-flat.mat-mdc-form-field-appearance-fill.mat-mdc-form-field-disabled .mat-mdc-text-field-wrapper::after {
+  border-color: var(--neutral-200, #e5e7eb);
+}
+
+/* Label “pastilla” para que no corte el borde cuando flota */
+.y2-edicion-page .ff-flat.mat-mdc-form-field-appearance-fill.mat-mdc-form-field-should-float .mat-mdc-form-field-label {
+  padding: 0 .25rem;
+  background: var(--bg, #fff);
+  margin-left: .25rem;
+  margin-right: .25rem;
+  border-radius: 3px;
+}
+
+/* Opcional: campos densos como en tu otra vista */
+.y2-edicion-page .dense-field .mat-mdc-form-field-infix {
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+.y2-edicion-page .dense-field .mat-mdc-text-field-wrapper {
+  height: 42px;
+}
+
+.y2-edicion-page .dense-field .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+/* ========================================================= */
+/* ====== TU ESTILO EXISTENTE (se mantiene tal cual)  ====== */
+/* ========================================================= */
 .y2-edicion-page {
   --gap: 12px;
   --fs: .96rem;
   --fs-sub: .82rem;
 }
 
-.y2-edicion-page.density-compact {
-  --fs: .9rem;
-  --fs-sub: .78rem;
-}
+  .y2-edicion-page.density-compact {
+    --fs: .9rem;
+    --fs-sub: .78rem;
+  }
 
-.y2-edicion-page.density-ultra {
-  --fs: .76rem;
-  --fs-sub: .68rem;
-}
+  .y2-edicion-page.density-ultra {
+    --fs: .76rem;
+    --fs-sub: .68rem;
+  }
 
 .grid-shell {
   display: grid;
@@ -30,20 +107,199 @@
   overflow: hidden;
 }
 
+/* ===== Tabla calendario ===== */
+.table-shell {
+  padding: 0;
+}
+
+.table-scroll {
+  overflow: auto;
+  max-height: 68vh;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--fs);
+}
+
+.table-head th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  box-shadow: inset 0 -1px 0 var(--neutral-200);
+}
+
+.table thead th, .table tbody td {
+  padding: 8px;
+  border-left: 1px solid var(--neutral-200);
+}
+
+.table tbody tr td {
+  border-top: 1px solid var(--neutral-200);
+  vertical-align: top;
+}
+
+.first-col {
+  left: 0;
+  z-index: 6;
+}
+
+.sticky-col {
+  position: sticky;
+  background: var(--bg);
+  box-shadow: 1px 0 0 var(--neutral-200);
+}
+
+.today-col {
+  background: #fcfcff;
+}
+
+.th-line1 {
+  font-weight: 800;
+}
+
+.th-line2 {
+  font-size: .74rem;
+  color: var(--neutral-600);
+}
+
+.reemplazo-name {
+  white-space: nowrap;
+}
+
+/* Turno / franja blocks */
+.turno-block {
+  text-align: left;
+  margin-bottom: 8px;
+}
+
+.turno-badge {
+  display: inline-block;
+  font-size: .72rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #dbeafe;
+}
+
+.franja-row {
+  margin-top: 6px;
+  border: 1px dashed var(--neutral-200);
+  border-radius: 10px;
+  padding: 8px;
+  transition: background .15s ease, border-color .15s ease;
+}
+
+  .franja-row.has-drag {
+    border-style: solid;
+  }
+
+  .franja-row.empty-slot:hover {
+    background: #f8fafc;
+    border-color: #d1d5db;
+  }
+
+.franja-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+  color: var(--neutral-700);
+}
+
+.dot {
+  color: var(--neutral-400);
+}
+
+.people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.slot-btn {
+  border-style: dashed;
+}
+
+.person-btn {
+  position: relative;
+  --pad: 4px 10px;
+  padding: var(--pad);
+  border-radius: 9999px;
+}
+
+  .person-btn.selected {
+    box-shadow: 0 0 0 2px var(--brand-200);
+    border-color: var(--brand-400);
+  }
+
+.person-menu {
+  opacity: .8;
+}
+
+/* Chips utilitarias */
+.chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #e0e7ff;
+  font-weight: 600;
+  font-size: .78rem;
+}
+
+  .chip.alt {
+    background: #ecfeff;
+    color: #155e75;
+    border-color: #cffafe;
+  }
+
+  .chip.tone {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+  }
+
+  .chip.mini {
+    font-size: .74rem;
+    padding: 2px 6px;
+  }
+
+  .chip.hours {
+    background: #f0f9ff;
+    color: #0c4a6e;
+    border-color: #bae6fd;
+  }
+
+.tag {
+  margin-left: 8px;
+  font-size: .74rem;
+  color: var(--neutral-600);
+}
+
+/* Paneles laterales */
 .panel-header {
   padding: 12px 14px;
   border-bottom: 1px solid var(--neutral-200);
 }
 
-.panel-header h3 {
-  margin: 0;
-  font-weight: 800;
-}
+  .panel-header h3 {
+    margin: 0;
+    font-weight: 800;
+  }
 
-.panel-header .muted {
-  color: var(--neutral-600);
-  font-size: var(--fs-sub);
-}
+  .panel-header .muted {
+    color: var(--neutral-600);
+    font-size: var(--fs-sub);
+  }
 
 .backlog-list {
   padding: 10px 12px;
@@ -71,12 +327,12 @@
   color: #b45309;
 }
 
-.row-bottom mat-icon {
-  font-size: 18px;
-  width: 18px;
-  height: 18px;
-  margin-right: 4px;
-}
+  .row-bottom mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    margin-right: 4px;
+  }
 
 .row-slots, .row-disponibles {
   margin-top: 8px;
@@ -86,10 +342,10 @@
   align-items: center;
 }
 
-.row-disponibles .title {
-  font-weight: 700;
-  margin-right: 6px;
-}
+  .row-disponibles .title {
+    font-weight: 700;
+    margin-right: 6px;
+  }
 
 .slot {
   display: inline-flex;
@@ -102,54 +358,14 @@
   font-size: var(--fs-sub);
 }
 
-.slot.libre {
-  background: #ecfdf5;
-  border-color: #bbf7d0;
-  color: #166534;
-}
+  .slot.libre {
+    background: #ecfdf5;
+    border-color: #bbf7d0;
+    color: #166534;
+  }
 
 .s-turno {
   font-weight: 700;
-}
-
-.chip {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #eef2ff;
-  color: #3730a3;
-  border: 1px solid #e0e7ff;
-  font-weight: 600;
-  font-size: .78rem;
-}
-
-.chip.alt {
-  background: #ecfeff;
-  color: #155e75;
-  border-color: #cffafe;
-}
-
-.chip.tone {
-  background: #fef3c7;
-  color: #92400e;
-  border-color: #fde68a;
-}
-
-.chip.mini {
-  font-size: .74rem;
-  padding: 2px 6px;
-}
-
-.chip.hours {
-  background: #f0f9ff;
-  color: #0c4a6e;
-  border-color: #bae6fd;
-}
-
-.tag {
-  margin-left: 8px;
-  font-size: .74rem;
-  color: var(--neutral-600);
 }
 
 .panel .actions-grid {
@@ -165,12 +381,12 @@
   padding: 12px;
 }
 
-.action-block h4 {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 8px 0;
-}
+  .action-block h4 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 8px 0;
+  }
 
 .form-grid {
   display: grid;
@@ -179,12 +395,12 @@
   align-items: end;
 }
 
-.form-grid .buttons {
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
+  .form-grid .buttons {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
 
 .form-inline {
   display: flex;
@@ -200,10 +416,10 @@
   border-radius: 8px;
 }
 
-.inline-table table {
-  width: 100%;
-  font-size: var(--fs-sub);
-}
+  .inline-table table {
+    width: 100%;
+    font-size: var(--fs-sub);
+  }
 
 .swap-grid {
   display: grid;
@@ -237,11 +453,42 @@
   background: #fff;
 }
 
-.swap-item.active {
-  border-color: var(--brand-500);
-  box-shadow: 0 0 0 2px var(--brand-100);
+  .swap-item.active {
+    border-color: var(--brand-500);
+    box-shadow: 0 0 0 2px var(--brand-100);
+  }
+
+/* Barra flotante selección */
+.selection-bar {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 60;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--neutral-200);
 }
 
+  .selection-bar .sel-info {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: .9rem;
+  }
+
+    .selection-bar .sel-info .sep {
+      color: var(--neutral-500);
+    }
+
+  .selection-bar .sel-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+/* Loader */
 .fullscreen-loader {
   position: fixed;
   inset: 0;
@@ -261,17 +508,17 @@
   border: 2px dashed rgba(255,255,255,.25);
 }
 
-.loader-orbit .ball {
-  position: absolute;
-  top: -6px;
-  left: 50%;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  transform: translateX(-50%);
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(255,255,255,.18), 0 0 16px rgba(255,255,255,.7);
-}
+  .loader-orbit .ball {
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(255,255,255,.18), 0 0 16px rgba(255,255,255,.7);
+  }
 
 @keyframes orbit-rotate {
   to {
@@ -285,4 +532,85 @@
   font-weight: 600;
   letter-spacing: .2px;
   text-shadow: 0 1px 2px rgba(0,0,0,.35);
+}
+
+/* ===== NUEVO: efecto “flash” en columna ===== */
+.flash {
+  animation: col-flash 1.2s ease-in-out 1;
+}
+
+@keyframes col-flash {
+  0% {
+    box-shadow: inset 0 0 0 0 rgba(4,119,191,.0);
+    background: #fff;
+  }
+
+  30% {
+    box-shadow: inset 0 0 0 9999px rgba(4,119,191,.06);
+  }
+
+  60% {
+    box-shadow: inset 0 0 0 9999px rgba(4,119,191,.10);
+  }
+
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(4,119,191,.0);
+  }
+}
+
+/* ===== NUEVO: Swap Dock flotante ===== */
+.swap-dock {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 60;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--neutral-200);
+  background: var(--bg);
+  color: var(--fg);
+  min-width: 320px;
+}
+
+  .swap-dock .sd-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .swap-dock .sd-col {
+    border: 1px dashed var(--neutral-200);
+    border-radius: 10px;
+    padding: 8px;
+  }
+
+  .swap-dock .sd-title {
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  .swap-dock .sd-body .sd-main {
+    font-size: .95rem;
+  }
+
+  .swap-dock .sd-body .sd-sub {
+    font-size: .78rem;
+    color: var(--neutral-600);
+  }
+
+  .swap-dock .sd-empty {
+    font-size: .88rem;
+    color: var(--neutral-500);
+  }
+
+  .swap-dock .sd-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+/* ===== NUEVO: Dialogs ===== */
+.dialog-content {
+  padding-top: 6px;
 }

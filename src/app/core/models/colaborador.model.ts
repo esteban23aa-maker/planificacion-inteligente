@@ -26,4 +26,7 @@ export interface Colaborador {
   domingos?: string[];
 
   coordinadorId?: number;
+
+  pendienteEliminacion?: boolean;
+  fechaEliminacionProgramada?: string; // ISO (yyyy-MM-dd)
 }

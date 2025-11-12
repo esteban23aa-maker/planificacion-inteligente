@@ -3,6 +3,9 @@ import { Component, OnInit, ViewEncapsulation, HostBinding, ViewChild, ElementRe
 import { CommonModule, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
+import { finalize, switchMap, tap } from 'rxjs/operators';
+import { of } from 'rxjs';
+
 
 // Material
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -19,6 +22,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 // App
+import { EliminarColaboradorDialogComponent } from './dialogs/eliminar-colaborador-dialog.component';
+import { EstadoEliminacionDialogComponent } from './dialogs/estado-eliminacion-dialog.component';
 import { ColaboradoresService } from 'src/app/core/services/colaboradores.service';
 import { RolesService } from 'src/app/core/services/roles.service';
 import { PuestosService } from 'src/app/core/services/puestos.service';
@@ -28,6 +33,14 @@ import { ColaboradorDetallado } from 'src/app/core/models/colaborador-detallado.
 import { Rol } from 'src/app/core/models/rol.model';
 import { Puesto } from 'src/app/core/models/puesto.model';
 import { Maquina } from 'src/app/core/models/maquina.model';
+
+type ColabVM = ColaboradorDetallado & {
+  seleccionado?: boolean;
+  activo?: boolean;                   // para pintar Activo/Inactivo en UI
+  pendienteEliminacion?: boolean;     // bandera de pendiente (7 días)
+  fechaEliminacionProgramada?: string; // por si el backend no la envía siempre
+};
+
 import { FiltroColaboradoresPipe } from 'src/app/shared/pipes/filtro-colaboradores.pipe';
 import { PageHeaderComponent } from 'src/app/ui/page-header/page-header.component';
 import { ConfirmDialogComponent } from 'src/app/features/programacion/dialogs/confirm-dialog.component';
@@ -63,7 +76,7 @@ export class ColaboradoresComponent implements OnInit {
   private dialog = inject(MatDialog);
 
   // === Data
-  colaboradores: (ColaboradorDetallado & { seleccionado?: boolean })[] = [];
+  colaboradores: ColabVM[] = [];
   roles: Rol[] = [];
   puestos: Puesto[] = [];
   maquinas: Maquina[] = [];
@@ -143,17 +156,32 @@ export class ColaboradoresComponent implements OnInit {
   }
 
   // ===== Carga principal
-  cargarColaboradores(): void {
+
+  cargarColaboradores(afterLoad?: () => void): void {
     this.colaboradoresService.getDetallado().subscribe({
       next: data => {
-        this.colaboradores = (data || []).map(c => ({ ...c, seleccionado: false }));
+        // data: ColaboradorDetallado[]
+        this.colaboradores = (data || []).map((c) => {
+          // “base” parte del DTO y lo tratamos como ColabVM
+          const base: ColabVM = { ...c };
 
-        // Coordinadores disponibles (puestos COORDINADOR, grupo TITULAR)
+          // Si el backend ya manda pendiente/fecha, se usan; si no, derivamos
+          const pendiente = base.pendienteEliminacion ?? !!base.fechaEliminacionProgramada;
+
+          return {
+            ...base,
+            seleccionado: false,
+            pendienteEliminacion: pendiente,
+            // Si backend no trae 'activo', lo derivamos de 'pendiente'
+            activo: base.activo ?? !pendiente
+          } as ColabVM;
+        });
+
+        // === tu lógica de coordinadores y verificaciones, igual ===
         this.coordinadoresDisponibles = this.colaboradores.filter(c =>
           c.puesto?.nombre?.toUpperCase() === 'COORDINADOR' && c.grupo?.toUpperCase() === 'TITULAR'
         );
 
-        // Coordinadores actualmente asignados en la data
         this.coordinadoresAsignados = this.colaboradores
           .filter(c => c.coordinadorId && c.coordinadorNombre)
           .reduce((acc, curr) => {
@@ -161,9 +189,9 @@ export class ColaboradoresComponent implements OnInit {
             return acc;
           }, [] as { id: number, nombre: string }[]);
 
-        // Verificaciones de coordinadores
         this.verificarGruposSinCoordinador();
         this.loading = false;
+        afterLoad?.();
       },
       error: () => { this.loading = false; this.toast('Error al cargar colaboradores.'); }
     });
@@ -192,10 +220,14 @@ export class ColaboradoresComponent implements OnInit {
   // ===== Utilidades
   getNombresMaquinas(m: Maquina[] = []): string { return (m ?? []).map(x => x.nombre).join(', '); }
   getNombresRoles(r: Rol[] = []): string { return (r ?? []).map(x => x.nombre).join(', '); }
-  trackById = (_: number, item: ColaboradorDetallado) => item.id!;
+  trackById = (_: number, item: ColabVM) => item.id!;
 
   // ===== Edición
-  editar(col: ColaboradorDetallado): void {
+  editar(col: ColabVM): void {
+    if (col.pendienteEliminacion) {
+      this.toast('No se puede editar: colaborador marcado para eliminación.');
+      return;
+    }
     this.grupoAnterior = col.grupo?.toUpperCase() ?? '';
     this.nuevo = {
       ...col,
@@ -210,15 +242,100 @@ export class ColaboradoresComponent implements OnInit {
   }
 
   eliminar(id: number): void {
-    this.confirmar('¿Eliminar colaborador?').then(ok => {
-      if (!ok) return;
+    this.confirmar('¿Marcar colaborador para eliminación? Se borrará definitivamente en 7 días.')
+      .then(ok => {
+        if (!ok) return;
+        this.fullscreenLoading = true;
+        this.colaboradoresService.delete(id).subscribe({
+          next: () => {
+            this.toast('⏳ Colaborador marcado para eliminación. Se eliminará en 7 días.', true);
+            this.cargarColaboradores();
+          },
+          error: () => this.toast('Error al marcar para eliminación.'),
+          complete: () => this.fullscreenLoading = false
+        });
+      });
+  }
+
+  // ===== Eliminar con modal (2 opciones)
+
+  abrirEliminar(col: ColabVM): void {
+    const ref = this.dialog.open(EliminarColaboradorDialogComponent, {
+      data: { nombre: col.nombre },
+      width: '560px'
+    });
+
+    firstValueFrom(ref.afterClosed()).then(res => {
+      if (!res) return;
+
       this.fullscreenLoading = true;
-      this.colaboradoresService.delete(id).subscribe({
-        next: () => { this.toast('🗑️ Colaborador eliminado.', true); this.cargarColaboradores(); },
-        error: () => this.toast('Error al eliminar colaborador.'),
-        complete: () => this.fullscreenLoading = false
+
+      const hard = res === 'hard';
+
+      // 1) El observable base según la opción
+      const base$ = hard
+        ? this.colaboradoresService.hardDelete(col.id!)
+        : this.colaboradoresService.delete(col.id!);
+
+      // 2) Flujo completo (hard = sólo delete; soft = delete + GET by id)
+      const flujo$ = hard
+        ? base$.pipe(
+          tap(() => {
+            this.toast('🗑️ Eliminado definitivamente.', true);
+            this.cargarColaboradores();
+          })
+        )
+        : base$.pipe(
+          switchMap(() => this.colaboradoresService.getById(col.id!)), // trae fecha real
+          tap((dto: any) => {
+            const fecha = dto?.fechaEliminacionProgramada as (string | undefined);
+            // parchea estado local inmediatamente
+            this.patchEliminacionLocal(col.id!, fecha);
+            this.toast('⏳ Marcado para eliminación. Se eliminará en 7 días.', true);
+            // abre modal de estado
+            this.openEstadoDialog({
+              id: col.id!,
+              nombre: col.nombre,
+              fechaEliminacionProgramada: fecha
+            });
+            // refresca tabla
+            this.cargarColaboradores();
+          })
+        );
+
+      // 3) Ejecuta y SIEMPRE apaga overlay
+      flujo$.pipe(
+        finalize(() => this.fullscreenLoading = false)
+      ).subscribe({
+        error: () => this.toast('Error al procesar la eliminación.')
       });
     });
+  }
+
+
+  // ===== Modal de estado con cuenta regresiva + revertir
+  // --- Reemplaza tu verEstado(...) por este (reusa openEstadoDialog) ---
+  verEstado(col: ColabVM): void {
+    this.openEstadoDialog({
+      id: col.id,
+      nombre: col.nombre,
+      fechaEliminacionProgramada: col.fechaEliminacionProgramada
+    });
+  }
+
+
+  // === (opcional) dejar el restaurar directo si quieres botón fuera del modal:
+  restaurar(id: number): void {
+    this.confirmar('¿Cancelar la eliminación y reactivar al colaborador?')
+      .then(ok => {
+        if (!ok) return;
+        this.fullscreenLoading = true;
+        this.colaboradoresService.cancelarEliminacion(id).subscribe({
+          next: () => { this.toast('✅ Eliminación cancelada. Colaborador reactivado.', true); this.cargarColaboradores(); },
+          error: () => this.toast('Error al cancelar eliminación.'),
+          complete: () => this.fullscreenLoading = false
+        });
+      });
   }
 
   cancelar(): void {
@@ -276,19 +393,19 @@ export class ColaboradoresComponent implements OnInit {
       this.cargando = false; return this.toast('Debe asignar un puesto al grupo TITULAR.');
     }
     if (esTitular && !this.nuevo.coordinadorId) {
-  const tieneTurnoFijoActivo = this.nuevo.tieneTurnoFijo && !!this.nuevo.turnoFijo;
-  const esPrimerCoordinadorTitular =
-    esCoordinador &&
-    this.colaboradores.filter(c =>
-      c.puesto?.nombre?.toUpperCase() === 'COORDINADOR' &&
-      c.grupo?.toUpperCase() === 'TITULAR'
-    ).length === 0;
+      const tieneTurnoFijoActivo = this.nuevo.tieneTurnoFijo && !!this.nuevo.turnoFijo;
+      const esPrimerCoordinadorTitular =
+        esCoordinador &&
+        this.colaboradores.filter(c =>
+          c.puesto?.nombre?.toUpperCase() === 'COORDINADOR' &&
+          c.grupo?.toUpperCase() === 'TITULAR'
+        ).length === 0;
 
-  if (!tieneTurnoFijoActivo && !esPrimerCoordinadorTitular) {
-    this.cargando = false;
-    return this.toast('Debes asignar un coordinador al grupo TITULAR o habilitar un turno fijo.');
-  }
-}
+      if (!tieneTurnoFijoActivo && !esPrimerCoordinadorTitular) {
+        this.cargando = false;
+        return this.toast('Debes asignar un coordinador al grupo TITULAR o habilitar un turno fijo.');
+      }
+    }
 
     if (this.sinMaquinaPrincipal) this.nuevo.maquina = null;
 
@@ -415,6 +532,39 @@ export class ColaboradoresComponent implements OnInit {
       });
     });
   }
+
+  // --- Helpers nuevos en la clase ColaboradoresComponent ---
+  private patchEliminacionLocal(id: number, fecha?: string) {
+    const idx = this.colaboradores.findIndex(x => x.id === id);
+    if (idx >= 0) {
+      const curr = this.colaboradores[idx];
+      this.colaboradores[idx] = {
+        ...curr,
+        pendienteEliminacion: true,
+        fechaEliminacionProgramada: fecha ?? curr.fechaEliminacionProgramada,
+        activo: false // se desactiva inmediatamente
+      };
+    }
+  }
+
+  private openEstadoDialog(data: { id: number; nombre: string; fechaEliminacionProgramada?: string }) {
+    const ref = this.dialog.open(EstadoEliminacionDialogComponent, {
+      data,
+      width: '520px'
+    });
+
+    firstValueFrom(ref.afterClosed()).then(res => {
+      if (res === 'revert') {
+        this.fullscreenLoading = true;
+        this.colaboradoresService.cancelarEliminacion(data.id).subscribe({
+          next: () => { this.toast('✅ Eliminación cancelada. Colaborador reactivado.', true); this.cargarColaboradores(); },
+          error: () => this.toast('Error al cancelar eliminación.'),
+          complete: () => this.fullscreenLoading = false
+        });
+      }
+    });
+  }
+
 
   get filtrosActivos(): number {
     let n = 0;

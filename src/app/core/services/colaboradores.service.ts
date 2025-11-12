@@ -32,9 +32,19 @@ export class ColaboradoresService {
     return this.http.put(`${this.apiUrl}/${id}`, colaborador);
   }
 
-  /** Eliminar colaborador (limpia grupo si es coordinador) */
+  /** Eliminar colaborador (marca para eliminación) */
   delete(id: number): Observable<any> {
     return this.http.delete(`${this.apiUrl}/${id}`);
+  }
+
+  /** Hard delete inmediato (irreversible) */
+  hardDelete(id: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/${id}/eliminar-inmediato`, {});
+  }
+
+  /** Nuevo: desmarcar eliminación diferida */
+  cancelarEliminacion(id: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/${id}/cancelar-eliminacion`, {});
   }
 
   /** Obtener colaborador por ID */
@@ -65,5 +75,4 @@ export class ColaboradoresService {
   getTurnosGrupoPorGrupo(grupo: string): Observable<{ horario: string }[]> {
     return this.http.get<{ horario: string }[]>(`/api/turno-grupos/grupo/${grupo}`);
   }
-
 }

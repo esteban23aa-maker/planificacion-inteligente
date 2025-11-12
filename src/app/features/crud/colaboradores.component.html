@@ -238,6 +238,7 @@
           <th>Máquinas</th>
           <th>Reemplazos</th>
           <th>Coordinador</th>
+          <th>Estado</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -264,12 +265,47 @@
           <td>{{ getNombresMaquinas(c.maquinas) }}</td>
           <td>{{ getNombresRoles(c.puedeReemplazar) }}</td>
           <td>{{ c.coordinadorNombre || 'Sin asignar' }}</td>
+          <td>
+            <ng-container *ngIf="c.pendienteEliminacion; else estadoNormal">
+              <button type="button"
+                      class="chip chip-warn chip-link"
+                      (click)="verEstado(c)"
+                      matTooltip="Se eliminará el {{ c.fechaEliminacionProgramada || '—' }}. Click para ver estado.">
+                Inactivo
+              </button>
+            </ng-container>
+
+            <!-- Cuando NO está pendiente: respeta 'activo' -->
+            <ng-template #estadoNormal>
+              <span class="chip" [ngClass]="!c.activo ? 'chip-warn' : 'chip-ok'">
+                {{ !c.activo ? 'Inactivo' : 'Activo' }}
+              </span>
+            </ng-template>
+          </td>
           <td class="actions">
             <button mat-stroked-button color="primary" (click)="editar(c)" matTooltip="Editar">
               <mat-icon>edit</mat-icon>
             </button>
-            <button mat-stroked-button color="warn" (click)="eliminar(c.id!)" matTooltip="Eliminar">
+
+            <!-- NUEVO: abre modal con 2 opciones -->
+            <button mat-stroked-button color="warn" (click)="abrirEliminar(c)" matTooltip="Eliminar">
               <mat-icon>delete</mat-icon>
+            </button>
+
+            <!-- NUEVO: ver estado (cuenta regresiva + revertir) -->
+            <button mat-stroked-button color="accent"
+                    *ngIf="c.pendienteEliminacion"
+                    (click)="verEstado(c)"
+                    matTooltip="Estado de eliminación (restante y revertir)">
+              <mat-icon>hourglass_bottom</mat-icon>
+            </button>
+
+            <!-- (opcional) Revertir directo fuera del modal -->
+            <button mat-stroked-button color="accent"
+                    (click)="restaurar(c.id!)"
+                    matTooltip="Cancelar eliminación"
+                    *ngIf="c.pendienteEliminacion">
+              <mat-icon>history</mat-icon>
             </button>
           </td>
         </tr>

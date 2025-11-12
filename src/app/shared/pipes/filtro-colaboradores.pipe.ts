@@ -3,6 +3,14 @@ import { ColaboradorDetallado } from '../../core/models/colaborador-detallado.mo
 import { Rol } from '../../core/models/rol.model';
 import { Maquina } from '../../core/models/maquina.model';
 
+// Tipo local compatible con tu ViewModel (ColabVM)
+type ColabLike = ColaboradorDetallado & {
+  seleccionado?: boolean;
+  activo?: boolean;
+  pendienteEliminacion?: boolean;
+  fechaEliminacionProgramada?: string;
+};
+
 @Pipe({
   name: 'filtroColaboradores',
   standalone: true
@@ -13,8 +21,8 @@ export class FiltroColaboradoresPipe implements PipeTransform {
   private norm(s: unknown): string {
     return (s ?? '')
       .toString()
-      .normalize('NFD')                 // separa letra + acento
-      .replace(/[\u0300-\u036f]/g, '')  // elimina marcas combinantes (tildes)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .trim();
   }
@@ -32,15 +40,17 @@ export class FiltroColaboradoresPipe implements PipeTransform {
   }
 
   transform(
-    colaboradores: ColaboradorDetallado[],
+    colaboradores: ColabLike[] | null | undefined,
     filtroNombre: string,
     filtroPuedeReemplazar: Rol | null,
     filtroCoordinadorId: number | null = null,
     filtroGrupo: string | null = null,
     filtroMaquinaPrincipal: Maquina | null = null,
     filtroSinAsignacion: boolean = false
-  ): ColaboradorDetallado[] {
-    return (colaboradores || []).filter(c => {
+  ): ColabLike[] {
+    const list = (colaboradores ?? []) as ColabLike[];
+
+    return list.filter(c => {
       const coincideNombre = this.includesFold(c?.nombre, filtroNombre);
       const coincideRol = !filtroPuedeReemplazar || (c.puedeReemplazar ?? []).some(r => r.id === filtroPuedeReemplazar.id);
       const coincideCoordinador = !filtroCoordinadorId || c.coordinadorId === filtroCoordinadorId;

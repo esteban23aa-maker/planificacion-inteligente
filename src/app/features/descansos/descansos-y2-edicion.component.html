@@ -1,359 +1,632 @@
-<ui-page-header title="Edición de reducciones" [subtitle]="subtitle" [actions]="true">
-  <div actions class="flex flex-wrap gap-2 ml-auto">
-    <button mat-stroked-button color="primary" (click)="volver()">
-      <mat-icon class="mr-1">arrow_back</mat-icon> Volver a la semana
-    </button>
-    <mat-button-toggle-group class="density-toggle" [value]="density" (valueChange)="setDensity($event)">
-      <mat-button-toggle value="comfortable">Cómoda</mat-button-toggle>
-      <mat-button-toggle value="compact">Compacta</mat-button-toggle>
-      <mat-button-toggle value="ultra">Ultra</mat-button-toggle>
-    </mat-button-toggle-group>
-  </div>
-</ui-page-header>
+<div class="y2-edicion-page"
+     [class.density-compact]="density==='compact'"
+     [class.density-ultra]="density==='ultra'">
 
-<mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
+  <ui-page-header title="Edición de reducciones" [subtitle]="subtitle" [actions]="true">
+    <div actions class="flex flex-wrap gap-2 ml-auto">
+      <button mat-stroked-button color="primary" (click)="volver()">
+        <mat-icon class="mr-1">arrow_back</mat-icon> Volver a la semana
+      </button>
 
-<!-- ===== CALENDARIO estilo DescansosY2 (con slots vacíos + CRUD inline) ===== -->
-<div class="table-shell card" *ngIf="!loading">
-  <div class="table-scroll">
-    <table class="table table-bordered align-middle text-center">
-      <thead class="table-head">
-        <tr>
-          <th class="sticky-col first-col">Reemplazo</th>
-          <th *ngFor="let col of calendarCols" [class.today-col]="isToday(col.iso)">
-            <div class="th-line1">{{ col.label }}</div>
-            <div class="th-line2">{{ col.iso }}</div>
-          </th>
-        </tr>
-      </thead>
+      <button mat-flat-button color="primary" (click)="openCrearModal()">
+        <mat-icon class="mr-1">add</mat-icon> Crear reduccion
+      </button>
+    </div>
+  </ui-page-header>
 
-      <tbody>
-        <tr *ngFor="let row of calendarRows">
-          <td class="sticky-col first-col">
-            <strong class="reemplazo-name">{{ row.reemplazo }}</strong>
-          </td>
+  <mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
 
-          <td *ngFor="let col of calendarCols" [class.today-col]="isToday(col.iso)">
-            <ng-container *ngIf="row.cells[col.iso] as cell; else emptyCell">
-              <!-- buckets por turno -->
-              <div class="turno-block" *ngFor="let g of cell.groups">
-                <div class="turno-badge">{{ turnoBadge(g.turno) }}</div>
+  <!-- ===== CALENDARIO con Drag&Drop + Menú contextual ===== -->
+  <div class="table-shell card" *ngIf="!loading">
+    <div class="table-scroll" #tableScroll>
+      <!-- Agrupa todas las listas para DnD -->
+      <div cdkDropListGroup>
+        <table class="table table-bordered align-middle text-center">
+          <thead class="table-head">
+            <tr>
+              <th class="sticky-col first-col">Reemplazo</th>
+              <th *ngFor="let col of calendarCols"
+                  [class.today-col]="isToday(col.iso)"
+                  [attr.data-iso]="col.iso">
+                <div class="th-line1">{{ col.label }}</div>
+                <div class="th-line2">{{ col.iso }}</div>
+              </th>
+            </tr>
+          </thead>
 
-                <div class="franja-row" [class.empty-slot]="g.empty">
-                  <div class="franja-meta">
-                    <span class="chip alt" *ngIf="g.puesto && g.puesto !== '—'">{{ g.puesto }}</span>
-                    <span class="dot" *ngIf="g.puesto && g.puesto !== '—'">•</span>
-                    <span class="chip tone" *ngIf="g.maquina && g.maquina !== '—'">{{ g.maquina }}</span>
-                    <span class="dot" *ngIf="g.franja">•</span>
-                    <span class="chip mini" *ngIf="g.franja">{{ g.franja }}</span>
-                    <span class="dot">•</span>
-                    <span class="chip mini hours">{{ g.horas }}h</span>
+          <tbody>
+            <tr *ngFor="let row of calendarRows">
+              <td class="sticky-col first-col">
+                <strong class="reemplazo-name">{{ row.reemplazo }}</strong>
+              </td>
+
+              <td *ngFor="let col of calendarCols"
+                  [class.today-col]="isToday(col.iso)"
+                  [attr.data-iso]="col.iso">
+                <ng-container *ngIf="row.cells[col.iso] as cell; else emptyCell">
+                  <!-- buckets por turno -->
+                  <div class="turno-block" *ngFor="let g of cell.groups">
+                    <div class="turno-badge">{{ turnoBadge(g.turno) }}</div>
+
+                    <div class="franja-row" [class.empty-slot]="g.empty" [class.has-drag]="!!draggingId">
+                      <div class="franja-meta">
+                        <span class="chip alt" *ngIf="g.puesto && g.puesto !== '—'">{{ g.puesto }}</span>
+                        <span class="dot" *ngIf="g.puesto && g.puesto !== '—'">•</span>
+                        <span class="chip tone" *ngIf="g.maquina && g.maquina !== '—'">{{ g.maquina }}</span>
+                        <span class="dot" *ngIf="g.franja">•</span>
+                        <span class="chip mini" *ngIf="g.franja">{{ g.franja }}</span>
+                        <span class="dot">•</span>
+                        <span class="chip mini hours">{{ g.horas }}h</span>
+                      </div>
+
+                      <!-- SLOT VACÍO: crear o mover (abre modal mover) -->
+                      <div class="people"
+                           *ngIf="g.empty && !row.isAutoOnly"
+                           cdkDropList
+                           [cdkDropListConnectedTo]="connectedLists"
+                           [cdkDropListEnterPredicate]="allowEnter"
+                           [cdkDropListSortingDisabled]="true"
+                           (cdkDropListDropped)="onDropToSlot(col.iso, g.turno, g.franja, $event)">
+                        <button mat-stroked-button class="slot-btn"
+                                (click)="onClickEmptySlot(col.iso, g.turno, g.franja)"
+                                matTooltip="Crear (o mover seleccionado) aquí">
+                          <mat-icon>add</mat-icon> {{ selectedId ? 'Mover' : 'Crear' }}
+                        </button>
+                      </div>
+
+                      <!-- SLOT OCUPADO: (normal) chips + drop para swap -->
+                      <div class="people"
+                           *ngIf="!g.empty && !row.isAutoOnly"
+                           cdkDropList
+                           [cdkDropListConnectedTo]="connectedLists"
+                           [cdkDropListEnterPredicate]="allowEnter"
+                           [cdkDropListSortingDisabled]="true"
+                           (cdkDropListDropped)="onDropOnOccupied(g.ids[0], $event)">
+                        <ng-container *ngFor="let name of g.nombres; let i = index">
+                          <button class="person-btn"
+                                  mat-stroked-button
+                                  cdkDrag
+                                  [cdkDragData]="g.ids[i]"
+                                  (cdkDragStarted)="onDragStart($event)"
+                                  (cdkDragEnded)="onDragEnd($event)"
+                                  [class.selected]="selectedId === g.ids[i]"
+                                  (click)="onClickPerson(g, i)"
+                                  [matTooltip]="'Seleccionar: ' + name">
+                            {{ name }}
+                          </button>
+
+                          <button mat-icon-button class="person-menu"
+                                  [matMenuTriggerFor]="menuPerson"
+                                  (click)="menuActiveId = g.ids[i]"
+                                  matTooltip="Más acciones">
+                            <mat-icon>more_vert</mat-icon>
+                          </button>
+
+                          <button mat-icon-button color="warn"
+                                  (click)="confirmarEliminarId(g.ids[i])"
+                                  matTooltip="Eliminar">
+                            <mat-icon>delete</mat-icon>
+                          </button>
+                        </ng-container>
+                      </div>
+
+                      <!-- SLOT OCUPADO: (AUTO-ONLY) sin DnD ni drop targets -->
+                      <div class="people" *ngIf="!g.empty && row.isAutoOnly">
+                        <ng-container *ngFor="let name of g.nombres; let i = index">
+                          <button class="person-btn"
+                                  mat-stroked-button
+                                  [class.selected]="selectedId === g.ids[i]"
+                                  (click)="onClickPerson(g, i)"
+                                  [matTooltip]="'Seleccionar: ' + name">
+                            {{ name }}
+                          </button>
+
+                          <button mat-icon-button class="person-menu"
+                                  [matMenuTriggerFor]="menuPerson"
+                                  (click)="menuActiveId = g.ids[i]"
+                                  matTooltip="Más acciones">
+                            <mat-icon>more_vert</mat-icon>
+                          </button>
+
+                          <button mat-icon-button color="warn"
+                                  (click)="confirmarEliminarId(g.ids[i])"
+                                  matTooltip="Eliminar">
+                            <mat-icon>delete</mat-icon>
+                          </button>
+                        </ng-container>
+                      </div>
+                    </div>
                   </div>
+                </ng-container>
 
-                  <!-- SLOT VACÍO: crear o mover aquí -->
-                  <div class="people" *ngIf="g.empty">
-                    <button mat-stroked-button class="slot-btn"
-                            (click)="onClickEmptySlot(col.iso, g.turno, g.franja)"
-                            matTooltip="Crear (o mover seleccionado) aquí">
-                      <mat-icon>add</mat-icon> {{ selectedId ? 'Mover' : 'Crear' }}
-                    </button>
-                  </div>
-
-                  <!-- SLOT OCUPADO: chips con acciones -->
-                  <div class="people" *ngIf="!g.empty">
-                    <ng-container *ngFor="let name of g.nombres; let i = index">
-                      <button class="person-btn"
-                              mat-stroked-button
-                              [class.selected]="selectedId === g.ids[i]"
-                              (click)="onClickPerson(g, i)"
-                              [matTooltip]="'Seleccionar: ' + name">
-                        {{ name }}
-                      </button>
-                      <button mat-icon-button color="warn"
-                              (click)="eliminarById(g.ids[i])"
-                              matTooltip="Eliminar">
-                        <mat-icon>delete</mat-icon>
-                      </button>
-                    </ng-container>
-                  </div>
-                </div>
-              </div>
-            </ng-container>
-
-            <ng-template #emptyCell>—</ng-template>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- ===== PANELES (conservados): IZQ Backlog / DER Acciones CRUD ===== -->
-<div class="grid-shell" *ngIf="!loading">
-  <!-- IZQUIERDA: Backlog / Sugerencias -->
-  <section class="panel card">
-    <header class="panel-header">
-      <h3>Backlog y sugerencias</h3>
-      <small class="muted">Estado por persona, día propio y slots vacíos.</small>
-    </header>
-
-    <div class="backlog-list">
-      <div class="backlog-item" *ngFor="let b of backlog; trackBy: trackByBacklog">
-        <div class="row-top">
-          <div class="who">
-            <strong>{{ b.nombre }}</strong>
-            <span class="tag">{{ b.grupo }}</span>
-          </div>
-          <div class="hours">
-            <span class="chip hours">Backlog: {{ b.backlogHorasHastaBase }}h</span>
-          </div>
-        </div>
-
-        <div class="row-mid">
-          <span class="chip alt">Día propio: {{ b.diaPropioFecha }} ({{ b.diaPropio }})</span>
-          <span class="chip tone">Turno sugerido: {{ b.turnoSugerido || '—' }}</span>
-          <span class="chip mini" *ngIf="b.franjaSugerida">Franja: {{ b.franjaSugerida }}</span>
-        </div>
-
-        <div class="row-bottom" *ngIf="b.incidenciasSemana?.length">
-          <mat-icon>warning_amber</mat-icon>
-          <span class="incidencia" *ngFor="let i of b.incidenciasSemana; let last = last">
-            {{ i }}<span *ngIf="!last"> · </span>
-          </span>
-        </div>
-
-        <div class="row-slots" *ngIf="b.slotsVaciosDia?.length">
-          <div class="slot" *ngFor="let s of b.slotsVaciosDia" [class.libre]="s.libre">
-            <span class="s-turno">{{ s.turno }}</span>
-            <span class="s-franja">{{ s.franja }}</span>
-            <span class="s-estado">{{ s.libre ? 'Libre' : 'Ocupado' }}</span>
-          </div>
-        </div>
-
-        <div class="row-disponibles" *ngIf="b.y2Disponibles?.length">
-          <span class="title">Y2 disponibles:</span>
-          <div class="pills">
-            <span class="pill" *ngFor="let y of b.y2Disponibles" [matTooltip]="y.observacionCompatibilidad">
-              {{ y.nombre }}
-            </span>
-          </div>
-        </div>
+                <ng-template #emptyCell>—</ng-template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
-  </section>
+  </div>
 
-  <!-- DERECHA: Acciones CRUD (tus formularios intactos) -->
-  <section class="panel card" *ifRoles="['SUPERVISOR','ADMIN']">
-    <header class="panel-header">
-      <h3>Acciones</h3>
-      <small class="muted">Crear, mover, eliminar, intercambiar y otorgar horas.</small>
-    </header>
+  <!-- Menú contextual por persona -->
+  <mat-menu #menuPerson="matMenu" xPosition="before">
+    <button mat-menu-item (click)="menuActiveId && selectById(menuActiveId)">
+      <mat-icon>check_circle</mat-icon>
+      <span>Seleccionar</span>
+    </button>
 
-    <div class="actions-grid">
-      <!-- CREAR -->
-      <div class="action-block">
-        <h4><mat-icon>add_circle</mat-icon> Crear descanso</h4>
-        <form [formGroup]="fCrear" class="form-grid">
-          <mat-form-field appearance="outline">
-            <mat-label>Colaborador</mat-label>
-            <mat-select formControlName="colaboradorId">
-              <mat-option *ngFor="let c of colaboradoresList" [value]="c.id">{{ c.nombre }}</mat-option>
-            </mat-select>
-          </mat-form-field>
+    <button mat-menu-item (click)="editFromMenu()">
+      <mat-icon>edit</mat-icon>
+      <span>Editar en panel</span>
+    </button>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Fecha</mat-label>
-            <input matInput [matDatepicker]="dp1" formControlName="fecha">
-            <mat-datepicker-toggle matSuffix [for]="dp1"></mat-datepicker-toggle>
-            <mat-datepicker #dp1></mat-datepicker>
-          </mat-form-field>
+    <button mat-menu-item (click)="editFromMenuModal()">
+      <mat-icon>open_in_new</mat-icon>
+      <span>Editar (modal)</span>
+    </button>
+    <button mat-menu-item (click)="menuActiveId && startSwapAById(menuActiveId)">
+      <mat-icon>looks_one</mat-icon>
+      <span>Marcar como A</span>
+    </button>
+    <button mat-menu-item (click)="menuActiveId && startSwapBById(menuActiveId)">
+      <mat-icon>looks_two</mat-icon>
+      <span>Marcar como B</span>
+    </button>
+    <button mat-menu-item (click)="menuActiveId && confirmarEliminarId(menuActiveId)">
+      <mat-icon>delete</mat-icon>
+      <span>Eliminar</span>
+    </button>
+  </mat-menu>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Horas</mat-label>
-            <mat-select formControlName="horas">
-              <mat-option [value]="4">4 horas</mat-option>
-              <mat-option [value]="8">8 horas (Día completo)</mat-option>
-            </mat-select>
-          </mat-form-field>
+  <!-- ===== PANELES: IZQ Backlog / DER Acciones CRUD ===== -->
+  <div class="grid-shell" *ngIf="!loading">
+    <!-- IZQUIERDA -->
+    <section class="panel card">
+      <header class="panel-header">
+        <h3>Backlog y sugerencias</h3>
+        <small class="muted">Estado por persona, día propio y slots vacíos.</small>
+      </header>
 
-          <!-- Franja filtrada por turno real sugerido -->
-          <mat-form-field appearance="outline" *ngIf="fCrear.value.horas === 4">
-            <mat-label>Franja</mat-label>
-            <mat-select formControlName="franja">
-              <mat-option *ngIf="turnoCrear === 'MAN'" value="06:00-10:00">06:00–10:00</mat-option>
-              <mat-option *ngIf="turnoCrear === 'MAN'" value="10:00-14:00">10:00–14:00</mat-option>
-              <mat-option *ngIf="turnoCrear === 'TAR'" value="14:00-18:00">14:00–18:00</mat-option>
-              <mat-option *ngIf="turnoCrear === 'TAR'" value="18:00-22:00">18:00–22:00</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <!-- Y2 reemplazo (usar disponiblesCrear EN EL MISMO FORM) -->
-          <mat-form-field appearance="outline">
-            <mat-label>Y2 reemplazo (opcional)</mat-label>
-            <mat-select formControlName="reemplazoId">
-              <mat-option [value]="null">— Auto / según disponibilidad —</mat-option>
-              <mat-option *ngFor="let y of disponiblesCrear" [value]="y.colaboradorId">
-                {{ y.nombre }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-slide-toggle formControlName="acumuladasPrevias">Acumular horas previas</mat-slide-toggle>
-          <mat-slide-toggle formControlName="forzar">Forzar reglas no críticas</mat-slide-toggle>
-
-          <div class="buttons">
-            <button mat-flat-button color="primary" (click)="crear()" [disabled]="working">Crear</button>
+      <div class="backlog-list">
+        <div class="backlog-item" *ngFor="let b of backlog; trackBy: trackByBacklog">
+          <div class="row-top">
+            <div class="who">
+              <strong>{{ b.nombre }}</strong>
+              <span class="tag">{{ b.grupo }}</span>
+            </div>
+            <div class="hours">
+              <span class="chip hours">Backlog: {{ b.backlogHorasHastaBase }}h</span>
+            </div>
           </div>
-        </form>
-      </div>
 
-      <!-- ACTUALIZAR -->
-      <div class="action-block">
-        <h4><mat-icon>edit_calendar</mat-icon> Mover / Editar</h4>
-        <form [formGroup]="fActualizar" class="form-grid">
-          <mat-form-field appearance="outline">
-            <mat-label>Registro</mat-label>
-            <mat-select formControlName="id">
-              <mat-option *ngFor="let d of descansosData" [value]="d.id">
-                {{ d.fechaReduccion }} — {{ d.colaborador }} ({{ d.horas }}h {{ d.franja || 'DIA_COMPLETO' }})
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Nueva fecha</mat-label>
-            <input matInput [matDatepicker]="dp2" formControlName="nuevaFecha">
-            <mat-datepicker-toggle matSuffix [for]="dp2"></mat-datepicker-toggle>
-            <mat-datepicker #dp2></mat-datepicker>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Horas</mat-label>
-            <mat-select formControlName="horas">
-              <mat-option [value]="null">— Mantener —</mat-option>
-              <mat-option [value]="4">4 horas</mat-option>
-              <mat-option [value]="8">8 horas (Día completo)</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" *ngIf="fActualizar.value.horas === 4">
-            <mat-label>Franja</mat-label>
-            <mat-select formControlName="franja">
-              <mat-option [value]="null">— Sugerida —</mat-option>
-              <mat-option value="06:00-10:00">06:00–10:00</mat-option>
-              <mat-option value="10:00-14:00">10:00–14:00</mat-option>
-              <mat-option value="14:00-18:00">14:00–18:00</mat-option>
-              <mat-option value="18:00-22:00">18:00–22:00</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <!-- Reemplazo usando disponiblesCrear, dentro del form -->
-          <mat-form-field appearance="outline">
-            <mat-label>Y2 reemplazo (opcional)</mat-label>
-            <mat-select formControlName="reemplazoId">
-              <mat-option [value]="null">— Mantener / Auto —</mat-option>
-              <mat-option *ngFor="let y of disponiblesCrear" [value]="y.colaboradorId">
-                {{ y.nombre }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-slide-toggle formControlName="forzar">Forzar</mat-slide-toggle>
-
-          <div class="buttons">
-            <button mat-flat-button color="primary" (click)="actualizar()" [disabled]="working">Guardar</button>
+          <div class="row-mid">
+            <span class="chip alt">Día propio: {{ b.diaPropioFecha }} ({{ diaSemanaES(b.diaPropio) }})</span>
+            <span class="chip tone">Turno sugerido: {{ b.turnoSugerido || '—' }}</span>
+            <span class="chip mini" *ngIf="b.franjaSugerida">Franja: {{ b.franjaSugerida }}</span>
           </div>
-        </form>
-      </div>
 
-      <!-- ELIMINAR / OTORGAR -->
-      <div class="action-block">
-        <h4><mat-icon>delete_sweep</mat-icon> Eliminar / Otorgar horas</h4>
+          <div class="row-bottom" *ngIf="b.incidenciasSemana?.length">
+            <mat-icon>warning_amber</mat-icon>
+            <span class="incidencia" *ngFor="let i of b.incidenciasSemana; let last = last">
+              {{ i }}<span *ngIf="!last"> · </span>
+            </span>
+          </div>
 
-        <div class="inline-table">
-          <table mat-table [dataSource]="descansosData" class="mat-elevation-z0">
-            <ng-container matColumnDef="fecha">
-              <th mat-header-cell *matHeaderCellDef>Fecha</th>
-              <td mat-cell *matCellDef="let d">{{ d.fechaReduccion }}</td>
-            </ng-container>
+          <div class="row-slots" *ngIf="b.slotsVaciosDia?.length">
+            <div class="slot" *ngFor="let s of b.slotsVaciosDia" [class.libre]="s.libre">
+              <span class="s-turno">{{ s.turno }}</span>
+              <span class="s-franja">{{ s.franja }}</span>
+              <span class="s-estado">{{ s.libre ? 'Libre' : 'Ocupado' }}</span>
+            </div>
+          </div>
 
-            <ng-container matColumnDef="colab">
-              <th mat-header-cell *matHeaderCellDef>Titular</th>
-              <td mat-cell *matCellDef="let d">{{ d.colaborador }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="info">
-              <th mat-header-cell *matHeaderCellDef>Info</th>
-              <td mat-cell *matCellDef="let d">{{ d.horas }}h · {{ d.turno }} · {{ d.franja || 'DIA_COMPLETO' }}</td>
-            </ng-container>
-
-            <ng-container matColumnDef="acc">
-              <th mat-header-cell *matHeaderCellDef></th>
-              <td mat-cell *matCellDef="let d">
-                <button mat-icon-button color="warn" matTooltip="Eliminar" (click)="confirmarEliminar(d)">
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </td>
-            </ng-container>
-
-            <tr mat-header-row *matHeaderRowDef="['fecha','colab','info','acc']"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['fecha','colab','info','acc'];"></tr>
-          </table>
+          <div class="row-disponibles" *ngIf="b.y2Disponibles?.length">
+            <span class="title">Disponibles:</span>
+            <div class="pills">
+              <span class="pill" *ngFor="let y of b.y2Disponibles" [matTooltip]="y.observacionCompatibilidad">
+                {{ y.nombre }}
+              </span>
+            </div>
+          </div>
         </div>
+      </div>
+    </section>
 
-        <div class="sub-block">
-          <h5>Otorgar solo horas</h5>
-          <form [formGroup]="fOtorgar" class="form-inline">
-            <mat-form-field appearance="outline">
+    <!-- DERECHA -->
+    <section class="panel card" *ifRoles="['SUPERVISOR','ADMIN']">
+      <header class="panel-header">
+        <h3 id="accionesPanel">Acciones</h3>
+        <small class="muted">Crear, mover, eliminar, intercambiar y otorgar horas.</small>
+      </header>
+
+      <div class="actions-grid">
+        <!-- CREAR -->
+        <div class="action-block">
+          <h4><mat-icon>add_circle</mat-icon> Crear descanso</h4>
+          <form [formGroup]="fCrear" class="form-grid">
+            <mat-form-field appearance="fill" class="ff-flat">
               <mat-label>Colaborador</mat-label>
               <mat-select formControlName="colaboradorId">
                 <mat-option *ngFor="let c of colaboradoresList" [value]="c.id">{{ c.nombre }}</mat-option>
               </mat-select>
             </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Horas</mat-label>
-              <input matInput type="number" formControlName="horas" min="1">
+
+            <mat-form-field appearance="fill" class="ff-flat">
+              <mat-label>Fecha</mat-label>
+              <input matInput [matDatepicker]="dp1" formControlName="fecha">
+              <mat-datepicker-toggle matSuffix [for]="dp1"></mat-datepicker-toggle>
+              <mat-datepicker #dp1></mat-datepicker>
             </mat-form-field>
-            <mat-slide-toggle formControlName="diferirASiguiente">Diferir a prox. semana</mat-slide-toggle>
-            <button mat-stroked-button color="primary" (click)="otorgarHoras()" [disabled]="working">Otorgar</button>
+
+            <mat-form-field appearance="fill" class="ff-flat">
+              <mat-label>Horas</mat-label>
+              <mat-select formControlName="horas">
+                <mat-option [value]="4">4 horas</mat-option>
+                <mat-option [value]="8">8 horas (Día completo)</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="fill" class="ff-flat" *ngIf="fCrear.value.horas === 4">
+              <mat-label>Franja</mat-label>
+              <mat-select formControlName="franja">
+                <mat-option *ngIf="turnoCrear === 'MAN'" value="06:00-10:00">06:00–10:00</mat-option>
+                <mat-option *ngIf="turnoCrear === 'MAN'" value="10:00-14:00">10:00–14:00</mat-option>
+                <mat-option *ngIf="turnoCrear === 'TAR'" value="14:00-18:00">14:00–18:00</mat-option>
+                <mat-option *ngIf="turnoCrear === 'TAR'" value="18:00-22:00">18:00–22:00</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="fill" class="ff-flat">
+              <mat-label>Reemplazo (Opcional)</mat-label>
+              <mat-select formControlName="reemplazoId">
+                <mat-option [value]="null">— Mantener / Auto —</mat-option>
+                <mat-option *ngFor="let y of disponiblesCrear" [value]="y.colaboradorId">
+                  {{ y.nombre }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-slide-toggle formControlName="acumuladasPrevias">Acumular horas previas</mat-slide-toggle>
+            <mat-slide-toggle formControlName="forzar">Forzar reglas no críticas</mat-slide-toggle>
+
+            <div class="buttons">
+              <button mat-flat-button color="primary" (click)="crear()" [disabled]="working">Crear</button>
+            </div>
           </form>
         </div>
+
+        <!-- ACTUALIZAR -->
+        <div class="action-block">
+          <h4><mat-icon>edit_calendar</mat-icon> Mover / Editar</h4>
+          <form [formGroup]="fActualizar" class="form-grid">
+            <mat-form-field appearance="fill" class="ff-flat">
+              <mat-label>Registro</mat-label>
+              <mat-select formControlName="id">
+                <mat-option *ngFor="let d of descansosData" [value]="d.id">
+                  {{ d.fechaReduccion }} — {{ d.colaborador }} ({{ d.horas }}h {{ d.franja || 'DIA_COMPLETO' }})
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="fill" class="ff-flat">
+              <mat-label>Nueva fecha</mat-label>
+              <input matInput [matDatepicker]="dp2" formControlName="nuevaFecha">
+              <mat-datepicker-toggle matSuffix [for]="dp2"></mat-datepicker-toggle>
+              <mat-datepicker #dp2></mat-datepicker>
+            </mat-form-field>
+
+            <mat-form-field appearance="fill" class="ff-flat">
+              <mat-label>Horas</mat-label>
+              <mat-select formControlName="horas">
+                <mat-option [value]="null">— Mantener —</mat-option>
+                <mat-option [value]="4">4 horas</mat-option>
+                <mat-option [value]="8">8 horas (Día completo)</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="fill" class="ff-flat" *ngIf="fActualizar.value.horas === 4">
+              <mat-label>Franja</mat-label>
+              <mat-select formControlName="franja">
+                <mat-option [value]="null">— Sugerida —</mat-option>
+                <mat-option value="06:00-10:00">06:00–10:00</mat-option>
+                <mat-option value="10:00-14:00">10:00–14:00</mat-option>
+                <mat-option value="14:00-18:00">14:00–18:00</mat-option>
+                <mat-option value="18:00-22:00">18:00–22:00</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-slide-toggle formControlName="forzar">Forzar</mat-slide-toggle>
+
+            <div class="buttons">
+              <button mat-flat-button color="primary" (click)="actualizar()" [disabled]="working">Guardar</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- ELIMINAR / OTORGAR -->
+        <div class="action-block">
+          <h4><mat-icon>delete_sweep</mat-icon> Eliminar / Otorgar horas</h4>
+
+          <div class="inline-table">
+            <table mat-table [dataSource]="descansosData" class="mat-elevation-z0">
+              <ng-container matColumnDef="fecha">
+                <th mat-header-cell *matHeaderCellDef>Fecha</th>
+                <td mat-cell *matCellDef="let d">{{ d.fechaReduccion }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="colab">
+                <th mat-header-cell *matHeaderCellDef>Titular</th>
+                <td mat-cell *matCellDef="let d">{{ d.colaborador }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="info">
+                <th mat-header-cell *matHeaderCellDef>Info</th>
+                <td mat-cell *matCellDef="let d">{{ d.horas }}h · {{ d.turno }} · {{ d.franja || 'DIA_COMPLETO' }}</td>
+              </ng-container>
+
+              <ng-container matColumnDef="acc">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let d">
+                  <button mat-icon-button color="warn" matTooltip="Eliminar" (click)="confirmarEliminar(d)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="['fecha','colab','info','acc']"></tr>
+              <tr mat-row *matRowDef="let row; columns: ['fecha','colab','info','acc'];"></tr>
+            </table>
+          </div>
+
+          <div class="sub-block">
+            <h5>Otorgar solo horas</h5>
+            <form [formGroup]="fOtorgar" class="form-inline">
+              <mat-form-field appearance="fill" class="ff-flat">
+                <mat-label>Colaborador</mat-label>
+                <mat-select formControlName="colaboradorId">
+                  <mat-option *ngFor="let c of colaboradoresList" [value]="c.id">{{ c.nombre }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="fill" class="ff-flat">
+                <mat-label>Horas</mat-label>
+                <input matInput type="number" formControlName="horas" min="1">
+              </mat-form-field>
+
+              <mat-slide-toggle formControlName="diferirASiguiente">Diferir a prox. semana</mat-slide-toggle>
+              <button mat-stroked-button color="primary" (click)="otorgarHoras()" [disabled]="working">Otorgar</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- SWAP (conservado) -->
+        <div class="action-block">
+          <h4><mat-icon>swap_horiz</mat-icon> Intercambiar descansos</h4>
+          <div class="swap-grid">
+            <div class="swap-col">
+              <div class="swap-title">A</div>
+              <div class="swap-list">
+                <button class="swap-item" *ngFor="let d of descansosData" (click)="pickSwapA(d)"
+                        [class.active]="swapA?.id===d.id">
+                  {{ d.fechaReduccion }} · {{ d.colaborador }} · {{ d.franja || 'DIA_COMPLETO' }}
+                </button>
+              </div>
+            </div>
+            <div class="swap-col">
+              <div class="swap-title">B</div>
+              <div class="swap-list">
+                <button class="swap-item" *ngFor="let d of descansosData" (click)="pickSwapB(d)"
+                        [class.active]="swapB?.id===d.id">
+                  {{ d.fechaReduccion }} · {{ d.colaborador }} · {{ d.franja || 'DIA_COMPLETO' }}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="swap-actions">
+            <mat-slide-toggle [(ngModel)]="forzarSwap">Forzar</mat-slide-toggle>
+            <button mat-flat-button color="primary" (click)="doSwap()" [disabled]="working">Intercambiar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== SWAP DOCK FLOTANTE (A/B) ===== -->
+  <div class="swap-dock card" *ngIf="hasA || hasB">
+    <div class="sd-row">
+      <div class="sd-col">
+        <div class="sd-title">A</div>
+        <div class="sd-body" *ngIf="swapA; else aEmpty">
+          <div class="sd-main"><strong>{{ swapA.colaborador }}</strong></div>
+          <div class="sd-sub">{{ swapA.fechaReduccion }} · {{ swapA.franja || 'DIA_COMPLETO' }}</div>
+        </div>
+        <ng-template #aEmpty><div class="sd-empty">Elegido</div></ng-template>
       </div>
 
-      <!-- SWAP (conservado) -->
-      <div class="action-block">
-        <h4><mat-icon>swap_horiz</mat-icon> Intercambiar descansos</h4>
-        <div class="swap-grid">
-          <div class="swap-col">
-            <div class="swap-title">A</div>
-            <div class="swap-list">
-              <button class="swap-item" *ngFor="let d of descansosData" (click)="pickSwapA(d)"
-                      [class.active]="swapA?.id===d.id">
-                {{ d.fechaReduccion }} · {{ d.colaborador }} · {{ d.franja || 'DIA_COMPLETO' }}
-              </button>
-            </div>
-          </div>
-          <div class="swap-col">
-            <div class="swap-title">B</div>
-            <div class="swap-list">
-              <button class="swap-item" *ngFor="let d of descansosData" (click)="pickSwapB(d)"
-                      [class.active]="swapB?.id===d.id">
-                {{ d.fechaReduccion }} · {{ d.colaborador }} · {{ d.franja || 'DIA_COMPLETO' }}
-              </button>
-            </div>
-          </div>
+      <div class="sd-col">
+        <div class="sd-title">B</div>
+        <div class="sd-body" *ngIf="swapB; else bEmpty">
+          <div class="sd-main"><strong>{{ swapB.colaborador }}</strong></div>
+          <div class="sd-sub">{{ swapB.fechaReduccion }} · {{ swapB.franja || 'DIA_COMPLETO' }}</div>
         </div>
-        <div class="swap-actions">
-          <mat-slide-toggle [(ngModel)]="forzarSwap">Forzar</mat-slide-toggle>
-          <button mat-flat-button color="primary" (click)="doSwap()" [disabled]="working">Intercambiar</button>
-        </div>
+        <ng-template #bEmpty><div class="sd-empty">Elegir</div></ng-template>
       </div>
     </div>
-  </section>
-</div>
 
-<!-- Overlay trabajo -->
-<div *ngIf="working" class="fullscreen-loader" aria-live="assertive" aria-busy="true">
-  <div class="loader-orbit"><div class="ball"></div></div>
-  <div class="loader-text">Procesando…</div>
+    <div class="sd-actions">
+      <button mat-stroked-button (click)="goToAcciones()">
+        <mat-icon>tune</mat-icon> Ir a panel
+      </button>
+      <button mat-flat-button color="primary" (click)="doSwap()" [disabled]="!hasA || !hasB || working">
+        <mat-icon>swap_horiz</mat-icon> Intercambiar A ↔ B
+      </button>
+      <button mat-stroked-button color="warn" (click)="cancelSwapA()" [disabled]="!hasA">
+        <mat-icon>close</mat-icon> Limpiar A
+      </button>
+      <button mat-stroked-button color="warn" (click)="cancelSwapB()" [disabled]="!hasB">
+        <mat-icon>close</mat-icon> Limpiar B
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== DIALOG: CREAR ===== -->
+  <ng-template #crearDialog>
+    <h2 mat-dialog-title>Crear reducción Y2</h2>
+    <mat-dialog-content class="dialog-content">
+      <form [formGroup]="fCrear" class="form-grid">
+        <mat-form-field appearance="fill" class="ff-flat">
+          <mat-label>Colaborador</mat-label>
+          <mat-select formControlName="colaboradorId">
+            <mat-option *ngFor="let c of colaboradoresList" [value]="c.id">{{ c.nombre }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="ff-flat">
+          <mat-label>Fecha</mat-label>
+          <input matInput [matDatepicker]="dpCreate" formControlName="fecha">
+          <mat-datepicker-toggle matSuffix [for]="dpCreate"></mat-datepicker-toggle>
+          <mat-datepicker #dpCreate></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="ff-flat">
+          <mat-label>Horas</mat-label>
+          <mat-select formControlName="horas">
+            <mat-option [value]="4">4 horas</mat-option>
+            <mat-option [value]="8">8 horas (Día completo)</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="ff-flat" *ngIf="fCrear.value.horas === 4">
+          <mat-label>Franja</mat-label>
+          <mat-select formControlName="franja">
+            <mat-option *ngIf="turnoCrear === 'MAN'" value="06:00-10:00">06:00–10:00</mat-option>
+            <mat-option *ngIf="turnoCrear === 'MAN'" value="10:00-14:00">10:00–14:00</mat-option>
+            <mat-option *ngIf="turnoCrear === 'TAR'" value="14:00-18:00">14:00–18:00</mat-option>
+            <mat-option *ngIf="turnoCrear === 'TAR'" value="18:00-22:00">18:00–22:00</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="ff-flat">
+          <mat-label>Reemplazo (opcional)</mat-label>
+          <mat-select formControlName="reemplazoId">
+            <mat-option [value]="null">— Auto / según disponibilidad —</mat-option>
+            <mat-option *ngFor="let y of disponiblesCrear" [value]="y.colaboradorId">
+              {{ y.nombre }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-slide-toggle formControlName="acumuladasPrevias">Acumular horas previas</mat-slide-toggle>
+        <mat-slide-toggle formControlName="forzar">Forzar reglas no críticas</mat-slide-toggle>
+      </form>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>Cancelar</button>
+      <button mat-flat-button color="primary" [disabled]="fCrear.invalid || working" [mat-dialog-close]="'crear'">
+        Crear
+      </button>
+    </mat-dialog-actions>
+  </ng-template>
+
+  <!-- ===== DIALOG: EDITAR ===== -->
+  <ng-template #editarDialog>
+    <h2 mat-dialog-title>Editar / mover reducción Y2</h2>
+    <mat-dialog-content class="dialog-content">
+      <form [formGroup]="fActualizar" class="form-grid">
+        <mat-form-field appearance="fill" class="ff-flat">
+          <mat-label>Registro</mat-label>
+          <mat-select formControlName="id">
+            <mat-option *ngFor="let d of descansosData" [value]="d.id">
+              {{ d.fechaReduccion }} — {{ d.colaborador }} ({{ d.horas }}h {{ d.franja || 'DIA_COMPLETO' }})
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="ff-flat">
+          <mat-label>Nueva fecha</mat-label>
+          <input matInput [matDatepicker]="dpEdit" formControlName="nuevaFecha">
+          <mat-datepicker-toggle matSuffix [for]="dpEdit"></mat-datepicker-toggle>
+          <mat-datepicker #dpEdit></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="ff-flat">
+          <mat-label>Horas</mat-label>
+          <mat-select formControlName="horas">
+            <mat-option [value]="null">— Mantener —</mat-option>
+            <mat-option [value]="4">4 horas</mat-option>
+            <mat-option [value]="8">8 horas (Día completo)</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill" class="ff-flat" *ngIf="fActualizar.value.horas === 4">
+          <mat-label>Franja</mat-label>
+          <mat-select formControlName="franja">
+            <mat-option [value]="null">— Sugerida —</mat-option>
+            <mat-option value="06:00-10:00">06:00–10:00</mat-option>
+            <mat-option value="10:00-14:00">10:00–14:00</mat-option>
+            <mat-option value="14:00-18:00">14:00–18:00</mat-option>
+            <mat-option value="18:00-22:00">18:00–22:00</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-slide-toggle formControlName="forzar">Forzar</mat-slide-toggle>
+      </form>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>Cancelar</button>
+      <button mat-flat-button color="primary" [disabled]="fActualizar.invalid || working" [mat-dialog-close]="'guardar'">
+        Guardar
+      </button>
+    </mat-dialog-actions>
+  </ng-template>
+
+  <!-- ===== DIALOG: SWAP ===== -->
+  <ng-template #swapDialog>
+    <h2 mat-dialog-title>Intercambiar descansos</h2>
+    <mat-dialog-content class="dialog-content">
+      <div class="swap-grid">
+        <div class="swap-col">
+          <div class="swap-title">A (origen)</div>
+          <div class="swap-item" *ngIf="swapA; else aEmptyDlg">
+            {{ swapA.fechaReduccion }} · <strong>{{ swapA.colaborador }}</strong> · {{ swapA.franja || 'DIA_COMPLETO' }}
+          </div>
+          <ng-template #aEmptyDlg><div class="sd-empty">Selecciona A</div></ng-template>
+        </div>
+        <div class="swap-col">
+          <div class="swap-title">B (destino)</div>
+          <div class="swap-item" *ngIf="swapB; else bEmptyDlg">
+            {{ swapB.fechaReduccion }} · <strong>{{ swapB.colaborador }}</strong> · {{ swapB.franja || 'DIA_COMPLETO' }}
+          </div>
+          <ng-template #bEmptyDlg><div class="sd-empty">Selecciona B</div></ng-template>
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <mat-slide-toggle [(ngModel)]="forzarSwap">Forzar</mat-slide-toggle>
+      </div>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>Cancelar</button>
+      <button mat-flat-button color="primary" [disabled]="!swapA || !swapB || working" [mat-dialog-close]="'swap'">
+        Intercambiar
+      </button>
+    </mat-dialog-actions>
+  </ng-template>
+
+  <div class="footer-actions">
+    <div class="footer-left"></div>
+    <div class="footer-center">
+      <mat-button-toggle-group class="density-toggle" [value]="density" (valueChange)="setDensity($event)">
+        <mat-button-toggle value="comfortable">Cómoda</mat-button-toggle>
+        <mat-button-toggle value="compact">Compacta</mat-button-toggle>
+        <mat-button-toggle value="ultra">Ultra</mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+    <div class="footer-right"></div>
+  </div>
+
+  <!-- Overlay trabajo -->
+  <div *ngIf="working" class="fullscreen-loader" aria-live="assertive" aria-busy="true">
+    <div class="loader-orbit"><div class="ball"></div></div>
+    <div class="loader-text">Procesando…</div>
+  </div>
 </div>

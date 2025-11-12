@@ -336,9 +336,9 @@ export class ExcelExportService {
     const gray = this.toARGB('6b7280');
 
     groups.forEach((g, gi) => {
-      // Encabezado del grupo (turno + franja + horas + puesto/maquina) en gris itálica, SIN negrita
+      // Encabezado del grupo (turno + franja + horas + puesto/maquina) en gris itálica, SIN negrita <--------------
       const header =
-        `[${g.turno || '-'}] ${g.franja || '-'} ${g.horas ? `(${g.horas}h)` : ''} • ${g.puesto || '-'}/${g.maquina || '-'}`;
+        `${g.franja || '-'} ${g.horas ? `(${g.horas}h)` : ''} • ${g.puesto || '-'}/${g.maquina || '-'}`;
       runs.push({ text: header, font: { italic: true, color: { argb: gray }, bold: false } });
 
       // Lista de colaboradores: viñeta normal + NOMBRE en negrita

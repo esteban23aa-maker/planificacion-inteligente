@@ -14,7 +14,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
-// App 
+// App
 import { ExcelExportService } from 'src/app/core/services/excel-export.service';
 import { DescansosY2Service } from 'src/app/core/services/descansos-y2.service';
 import { DescansoY2, ReemplazoY2, IncidenciaY2 } from 'src/app/core/models/descanso-y2.model';
@@ -31,7 +31,8 @@ interface CellGroup {
   franja: string; horas: number; colaboradores: string[];
 }
 interface CalendarCell { groups: CellGroup[]; }
-interface CalendarRow { reemplazo: string; cells: Record<ISODate, CalendarCell>; }
+/** 👇 ahora con flag isAutoOnly para ordenar al final */
+interface CalendarRow { reemplazo: string; cells: Record<ISODate, CalendarCell>; isAutoOnly?: boolean; }
 
 type Density = 'comfortable' | 'compact' | 'ultra';
 
@@ -150,24 +151,41 @@ export class DescansosY2Component implements OnInit {
     });
   }
 
+  /** Construye el calendario y deja las filas AUTO-ONLY al final (antes de "— Sin asignar"). */
   private buildCalendar() {
     const rowsMap = new Map<string, CalendarRow>();
     const colKeys = new Set(this.calendarCols.map(c => c.iso));
     const SIN = '— Sin asignar';
 
-    // Presembrar filas
-    for (const r of this.reemplazos) {
-      const key = (r.reemplazo?.trim() || SIN);
-      if (!rowsMap.has(key)) rowsMap.set(key, { reemplazo: key, cells: {} });
+    // 0) Flags por fila para detectar AUTO-ONLY
+    const rowFlags = new Map<string, { hasAuto: boolean; hasNonAuto: boolean }>();
+    for (const d of this.descansos) {
+      const rowKey = d.reemplazo && d.reemplazo.trim() !== '—' ? d.reemplazo.trim() : SIN;
+      const auto = (d.modalidad || '').toUpperCase() === 'AUTOREEMPLAZO';
+      const rec = rowFlags.get(rowKey) || { hasAuto: false, hasNonAuto: false };
+      if (auto) rec.hasAuto = true; else rec.hasNonAuto = true;
+      rowFlags.set(rowKey, rec);
     }
 
-    // Poblar celdas (L..S)
+    // 1) Presembrar filas desde "reemplazos" (si viene) con su flag isAutoOnly
+    for (const r of this.reemplazos) {
+      const key = (r.reemplazo?.trim() || SIN);
+      if (!rowsMap.has(key)) {
+        const flags = rowFlags.get(key) || { hasAuto: false, hasNonAuto: false };
+        rowsMap.set(key, { reemplazo: key, cells: {}, isAutoOnly: flags.hasAuto && !flags.hasNonAuto });
+      }
+    }
+
+    // 2) Poblar celdas (L..S) y crear filas faltantes, respetando isAutoOnly
     for (const d of this.descansos) {
       const iso = d.fechaReduccion;
       if (!colKeys.has(iso)) continue;
 
       const rowKey = d.reemplazo && d.reemplazo.trim() !== '—' ? d.reemplazo.trim() : SIN;
-      if (!rowsMap.has(rowKey)) rowsMap.set(rowKey, { reemplazo: rowKey, cells: {} });
+      if (!rowsMap.has(rowKey)) {
+        const flags = rowFlags.get(rowKey) || { hasAuto: false, hasNonAuto: false };
+        rowsMap.set(rowKey, { reemplazo: rowKey, cells: {}, isAutoOnly: flags.hasAuto && !flags.hasNonAuto });
+      }
 
       const row = rowsMap.get(rowKey)!;
       if (!row.cells[iso]) row.cells[iso] = { groups: [] };
@@ -175,19 +193,19 @@ export class DescansosY2Component implements OnInit {
       const puesto = d.puesto || 'SIN PUESTO';
       const maquina = d.maquina || 'SIN MAQUINA';
       const turno = d.turno || 'SIN TURNO';
-      const franja = d.franja || '';           // ejemplo: '6-10', '10-14', 'DIA_COMPLETO'
+      const franja = d.franja || '';           // '6-10', '10-14', 'DIA_COMPLETO', etc.
       const horas = d.horas || 0;
 
-      const gkey = `${puesto.toUpperCase()}|${maquina.toUpperCase()}|${turno.toUpperCase()}|${(franja || '').toUpperCase()}|${horas}`;
+      const gkey = `${(puesto || '').toUpperCase()}|${(maquina || '').toUpperCase()}|${(turno || '').toUpperCase()}|${(franja || '').toUpperCase()}|${horas}`;
       let group = row.cells[iso].groups.find(g => g.key === gkey);
       if (!group) {
         group = { key: gkey, puesto, maquina, turno, franja, horas, colaboradores: [] };
         row.cells[iso].groups.push(group);
       }
-      group.colaboradores.push(d.colaborador);
+      if (d.colaborador) group.colaboradores.push(d.colaborador);
     }
 
-    // Ordenar grupos (puesto, máquina, turno, franja, horas)
+    // 3) Ordenar grupos (puesto, máquina, turno, franja, horas)
     const rankFranja = (f: string) => {
       const order = ['6-10', '10-14', '14-18', '18-22', 'DIA_COMPLETO'];
       const idx = order.indexOf((f || '').toUpperCase());
@@ -208,13 +226,18 @@ export class DescansosY2Component implements OnInit {
       }
     }
 
-    // Salida ordenada por reemplazo, dejando "— Sin asignar" al final
-    this.calendarRows = Array.from(rowsMap.values()).sort((a, b) => {
-      const A = a.reemplazo === SIN, B = b.reemplazo === SIN;
-      if (A && !B) return 1;
-      if (!A && B) return -1;
-      return a.reemplazo.localeCompare(b.reemplazo);
-    });
+    // 4) Salida ordenada:
+    //    0) Reemplazos reales
+    //    1) AUTO-ONLY
+    //    2) "— Sin asignar"
+    const rowRank = (row: CalendarRow) => {
+      if (row.reemplazo === SIN) return 2;
+      return row.isAutoOnly ? 1 : 0;
+    };
+
+    this.calendarRows = Array.from(rowsMap.values()).sort((a, b) =>
+      rowRank(a) - rowRank(b) || a.reemplazo.localeCompare(b.reemplazo)
+    );
   }
 
   // Agrupar visualmente por turno (las dos franjas van juntas en orden)
@@ -231,7 +254,6 @@ export class DescansosY2Component implements OnInit {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(g);
     }
-    // ordenar franjas dentro de cada turno
     const out = Array.from(map.entries()).map(([turno, items]) => ({
       turno,
       items: items.sort((a, b) =>
@@ -241,7 +263,6 @@ export class DescansosY2Component implements OnInit {
         (a.maquina || '').localeCompare(b.maquina || '')
       )
     }));
-    // orden alfabético de turno (o deja como te guste)
     return out.sort((a, b) => (a.turno || '').localeCompare(b.turno || ''));
   }
 
@@ -301,7 +322,6 @@ export class DescansosY2Component implements OnInit {
       const okRow = !fr || row.reemplazo.toLowerCase().includes(fr);
       if (!okRow) return false;
       if (!fn) return true;
-      // buscar nombre en cualquier celda
       for (const iso of Object.keys(row.cells)) {
         const cell = row.cells[iso];
         for (const g of cell.groups) {
@@ -315,9 +335,9 @@ export class DescansosY2Component implements OnInit {
   exportarExcel(): void {
     const rows = this.filteredRows();
     this.excel.exportY2({
-      titulo: 'Reducciones (Y2)',
+      titulo: 'Reducciones',
       subtitulo: this.subtitle,
-      cols: this.calendarCols, // [{label, iso}]
+      cols: this.calendarCols,
       rows: rows,              // [{reemplazo, cells{iso:{groups:[...]}}}]
       incidencias: this.incidencias,
       filename: `Reducciones_${this.domingoActual}.xlsx`

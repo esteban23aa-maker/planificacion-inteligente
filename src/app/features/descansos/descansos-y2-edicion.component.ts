@@ -1,5 +1,7 @@
-// C:\Proyectos\planificacion-inteligente\src\app\features\descansos\descansos-y2-edicion.component.ts
-import { Component, OnInit, ViewEncapsulation, inject, HostBinding, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import {
+  Component, OnInit, ViewEncapsulation, inject, HostBinding, ChangeDetectionStrategy,
+  ChangeDetectorRef, ViewChild, ViewChildren, TemplateRef, ElementRef, QueryList, AfterViewInit
+} from '@angular/core';
 import { CommonModule, formatDate } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
@@ -22,6 +24,12 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
+
+// CDK Drag & Drop
+import {
+  DragDropModule, CdkDragStart, CdkDragEnd, CdkDragDrop, CdkDropList
+} from '@angular/cdk/drag-drop';
 
 // App
 import { PageHeaderComponent } from 'src/app/ui/page-header/page-header.component';
@@ -30,7 +38,9 @@ import { ConfirmDialogComponent } from 'src/app/features/programacion/dialogs/co
 import { AuthService } from 'src/app/core/services/auth.service';
 import { DescansosY2CrudService } from 'src/app/core/services/descansos-y2-crud.service';
 import { DescansosY2Service } from 'src/app/core/services/descansos-y2.service';
-import { Y2BacklogItemDTO, Y2DisponibilidadDTO, Y2SlotDTO, Y2OtorgarHorasRequest } from 'src/app/core/models/descanso-y2-crud.model';
+import {
+  Y2BacklogItemDTO, Y2DisponibilidadDTO, Y2SlotDTO, Y2OtorgarHorasRequest
+} from 'src/app/core/models/descanso-y2-crud.model';
 import { DescansoY2 } from 'src/app/core/models/descanso-y2.model';
 
 type ISO = string;
@@ -43,12 +53,14 @@ interface CellGroup {
   turno: string;
   franja: string;
   horas: number;
-  nombres: string[];     // lista de nombres mostrados
-  ids: number[];         // ids paralelos a 'nombres'
-  empty?: boolean;       // marca slot vacío
+  nombres: string[];
+  ids: number[];
+  empty?: boolean;
 }
 interface CalendarCell { groups: CellGroup[]; }
-interface CalendarRow { reemplazo: string; cells: Record<ISO, CalendarCell>; }
+
+/** ✅ Extiende fila con flag AUTO-ONLY */
+interface CalendarRow { reemplazo: string; cells: Record<ISO, CalendarCell>; isAutoOnly?: boolean; }
 
 @Component({
   selector: 'app-descansos-y2-edicion',
@@ -58,7 +70,10 @@ interface CalendarRow { reemplazo: string; cells: Record<ISO, CalendarCell>; }
     // Material
     MatButtonModule, MatIconModule, MatSnackBarModule, MatProgressBarModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule,
-    MatDatepickerModule, MatNativeDateModule, MatTableModule, MatTooltipModule, MatDialogModule, MatButtonToggleModule,
+    MatDatepickerModule, MatNativeDateModule, MatTableModule, MatTooltipModule,
+    MatDialogModule, MatButtonToggleModule, MatMenuModule,
+    // CDK
+    DragDropModule,
     // UI
     PageHeaderComponent, IfRolesDirective
   ],
@@ -68,9 +83,9 @@ interface CalendarRow { reemplazo: string; cells: Record<ISO, CalendarCell>; }
   host: { class: 'y2-edicion-page' },
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DescansosY2EdicionComponent implements OnInit {
+export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
   private crud = inject(DescansosY2CrudService);
-  private svc = inject(DescansosY2Service); // listar descansos existentes (semana)
+  private svc = inject(DescansosY2Service);
   private snack = inject(MatSnackBar);
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
@@ -78,6 +93,18 @@ export class DescansosY2EdicionComponent implements OnInit {
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
   private dialog = inject(MatDialog);
+
+  // ===== Dialog templates =====
+  @ViewChild('crearDialog') crearDialog!: TemplateRef<any>;
+  @ViewChild('editarDialog') editarDialog!: TemplateRef<any>;
+  @ViewChild('swapDialog') swapDialog!: TemplateRef<any>;
+  @ViewChild('tableScroll', { read: ElementRef }) tableScrollRef!: ElementRef<HTMLDivElement>;
+
+  // Conectar todos los drop-lists
+  @ViewChildren(CdkDropList) private dropLists!: QueryList<CdkDropList>;
+  connectedLists: CdkDropList[] = [];
+  // Nota: puedes tiparla como (drag: CdkDrag<any>, drop: CdkDropList) => boolean si usas strict
+  allowEnter = () => true;
 
   // ===== Estado existente =====
   domingo!: ISO;
@@ -90,17 +117,28 @@ export class DescansosY2EdicionComponent implements OnInit {
   colaboradoresList: { id: number; nombre: string }[] = [];
   descansosData: DescansoY2[] = [];
 
-  // ===== NUEVO: Calendario estilo DescansosY2 =====
-  calendarCols: CalendarCol[] = [];     // Lunes..Sábado
-  calendarRows: CalendarRow[] = [];     // filas por "reemplazo"
-  selected?: DescansoY2 | null;         // selección de un registro ocupado
+  // ===== Calendario =====
+  calendarCols: CalendarCol[] = [];
+  calendarRows: CalendarRow[] = [];
+  selected?: DescansoY2 | null;
   selectedId?: number | null;
+
+  // DnD / Menú contextual
+  draggingId: number | null = null;
+  menuActiveId: number | null = null;
 
   private readonly TURNOS = ['MAN', 'TAR'] as const;
   private readonly FRANJAS: Record<string, string[]> = {
     MAN: ['06:00-10:00', '10:00-14:00'],
     TAR: ['14:00-18:00', '18:00-22:00'],
   };
+
+  // ===== Navegación / realce de columna =====
+  private pendingScrollIso: ISO | null = null;
+
+  // ===== Estado visual “Swap Dock” =====
+  get hasA() { return !!this.swapA; }
+  get hasB() { return !!this.swapB; }
 
   // Density
   density: 'comfortable' | 'compact' | 'ultra' =
@@ -135,7 +173,7 @@ export class DescansosY2EdicionComponent implements OnInit {
     diferirASiguiente: [false]
   });
 
-  // Swap (conservado)
+  // Swap
   swapA: DescansoY2 | null = null;
   swapB: DescansoY2 | null = null;
   forzarSwap = false;
@@ -159,13 +197,12 @@ export class DescansosY2EdicionComponent implements OnInit {
     this.buildWeekCols(this.domingo);
     this.cargar();
 
-    // Reglas horas/franja en formularios
+    // Reglas horas/franja
     this.fCrear.get('horas')!.valueChanges.subscribe(h => {
       if (h === 8) this.fCrear.get('franja')!.setValue('DIA_COMPLETO');
       else if (this.fCrear.get('franja')!.value === 'DIA_COMPLETO') this.fCrear.get('franja')!.setValue(null);
     });
-    this.fCrear.valueChanges.pipe(debounceTime(150)).subscribe(() => this.recalcDisponiblesCrear());
-    this.recalcDisponiblesCrear();
+    this.fCrear.valueChanges.pipe(debounceTime(120)).subscribe(() => this.recalcDisponiblesCrear());
 
     this.fActualizar.get('horas')!.valueChanges.subscribe(h => {
       if (h === 8) this.fActualizar.get('franja')!.setValue('DIA_COMPLETO');
@@ -173,27 +210,45 @@ export class DescansosY2EdicionComponent implements OnInit {
     });
   }
 
-  // ===== Helpers de normalización =====
+  ngAfterViewInit(): void {
+    this.setupDnDConnections();
+    this.dropLists.changes.subscribe(() => this.setupDnDConnections());
+  }
+
+  private setupDnDConnections(): void {
+    // Conecta TODOS los cdkDropList para permitir drop cruzado entre celdas
+    this.connectedLists = this.dropLists?.toArray() ?? [];
+    // Forzamos CD al asignar para que no quede template en estado viejo
+    this.cdr.detectChanges();
+  }
+
+  // ===== Helpers normalización =====
   private canonTurno(raw?: string | null): 'MAN' | 'TAR' | 'SIN' {
     const v = (raw || '').toUpperCase();
     if (v === 'MAN' || v === '06:00-14:00') return 'MAN';
     if (v === 'TAR' || v === '14:00-22:00') return 'TAR';
     return 'SIN';
   }
-
   private canonTurnoFromFranja(f?: string | null): 'MAN' | 'TAR' | 'SIN' {
     const v = (f || '').toUpperCase();
     if (v === '06:00-10:00' || v === '10:00-14:00') return 'MAN';
     if (v === '14:00-18:00' || v === '18:00-22:00') return 'TAR';
     return 'SIN';
   }
-
-  /** Para mostrar el badge en la UI (si decides usarlo en el template) */
   turnoBadge(t?: string | null): string {
     const v = (t || '').toUpperCase();
     if (v === 'MAN') return '06:00-14:00';
     if (v === 'TAR') return '14:00-22:00';
     return v || 'SIN TURNO';
+  }
+  /** Día de semana a español para backlog */
+  diaSemanaES(d?: string | null): string {
+    const m: Record<string, string> = {
+      MONDAY: 'Lunes', TUESDAY: 'Martes', WEDNESDAY: 'Miércoles',
+      THURSDAY: 'Jueves', FRIDAY: 'Viernes', SATURDAY: 'Sábado', SUNDAY: 'Domingo'
+    };
+    const key = (d || '').toUpperCase();
+    return m[key] || (d || '—');
   }
 
   // ===== Carga de datos =====
@@ -207,7 +262,6 @@ export class DescansosY2EdicionComponent implements OnInit {
         this.backlog = backlog || [];
         this.descansosSemana = descansos || [];
 
-        // listas auxiliares existentes
         this.colaboradoresList = this.backlog
           .map(b => ({ id: b.colaboradorId, nombre: b.nombre }))
           .sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -217,8 +271,16 @@ export class DescansosY2EdicionComponent implements OnInit {
           (a.colaborador || '').localeCompare(b.colaborador || '')
         );
 
-        // NUEVO: construir calendario al estilo DescansosY2
         this.buildCalendar();
+
+        if (this.pendingScrollIso) {
+          const iso = this.pendingScrollIso;
+          setTimeout(() => this.scrollToIso(iso), 120);
+          this.pendingScrollIso = null;
+        }
+
+        // IMPORTANTE: refrescar candidatos Y2 tras la carga
+        this.recalcDisponiblesCrear();
 
         this.loading = false;
         this.cdr.markForCheck();
@@ -231,31 +293,45 @@ export class DescansosY2EdicionComponent implements OnInit {
     });
   }
 
-  // ===== Calendario (idéntico look & feel a DescansosY2) =====
+  // ===== Calendario =====
   private buildWeekCols(domingoISO: ISO) {
     const [y, m, d] = domingoISO.split('-').map(Number);
     const base = new Date(y, m - 1, d);
     const labels = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     this.calendarCols = Array.from({ length: 6 }).map((_, i) => {
       const f = new Date(base);
-      f.setDate(base.getDate() + (i + 1)); // +1 => lunes
+      f.setDate(base.getDate() + (i + 1));
       return { label: labels[i], iso: this.toIsoLocal(f) };
     });
   }
 
+  /** ✅ buildCalendar con filas AUTO-ONLY y orden */
   private buildCalendar() {
     const colKeys = new Set(this.calendarCols.map(c => c.iso));
     const rowsMap = new Map<string, CalendarRow>();
     const SIN = '— Sin asignar';
 
-    // Sembrar filas usando los reemplazos presentes en la semana (o SIN)
+    // 1) Detectar por fila si es AUTO-ONLY (sólo autoremplazos) o tiene reemplazos reales
+    const rowFlags = new Map<string, { hasAuto: boolean; hasNonAuto: boolean }>();
     for (const d of this.descansosSemana) {
       const rowKey = d.reemplazo && d.reemplazo.trim() !== '—' ? d.reemplazo.trim() : SIN;
-      if (!rowsMap.has(rowKey)) rowsMap.set(rowKey, { reemplazo: rowKey, cells: {} });
+      const auto = (d.modalidad || '').toUpperCase() === 'AUTOREEMPLAZO';
+      const rec = rowFlags.get(rowKey) || { hasAuto: false, hasNonAuto: false };
+      if (auto) rec.hasAuto = true; else rec.hasNonAuto = true;
+      rowFlags.set(rowKey, rec);
     }
-    if (!rowsMap.size) rowsMap.set(SIN, { reemplazo: SIN, cells: {} });
 
-    // Poblar grupos ocupados
+    // 2) Inicializar filas con flag isAutoOnly
+    for (const d of this.descansosSemana) {
+      const rowKey = d.reemplazo && d.reemplazo.trim() !== '—' ? d.reemplazo.trim() : SIN;
+      if (!rowsMap.has(rowKey)) {
+        const flags = rowFlags.get(rowKey) || { hasAuto: false, hasNonAuto: false };
+        rowsMap.set(rowKey, { reemplazo: rowKey, cells: {}, isAutoOnly: flags.hasAuto && !flags.hasNonAuto });
+      }
+    }
+    if (!rowsMap.size) rowsMap.set(SIN, { reemplazo: SIN, cells: {}, isAutoOnly: false });
+
+    // 3) Agrupar por celda y franja
     for (const d of this.descansosSemana) {
       const iso = d.fechaReduccion;
       if (!colKeys.has(iso!)) continue;
@@ -264,12 +340,12 @@ export class DescansosY2EdicionComponent implements OnInit {
       const row = rowsMap.get(rowKey)!;
 
       if (!row.cells[iso!]) row.cells[iso!] = { groups: [] };
+
       const puesto = d.puesto || '—';
       const maquina = d.maquina || '—';
       const franja = d.franja || '';
       const horas = d.horas || 0;
 
-      // Normaliza turno a MAN/TAR (y si no viene, dedúcelo por franja)
       let turnoCanon = this.canonTurno(d.turno);
       if (turnoCanon === 'SIN') turnoCanon = this.canonTurnoFromFranja(franja);
 
@@ -283,19 +359,15 @@ export class DescansosY2EdicionComponent implements OnInit {
       group.ids.push(d.id!);
     }
 
-    // Asegurar placeholders de franjas por turno
+    // 4) Insertar placeholders (sólo si NO es auto-only)
     for (const row of rowsMap.values()) {
       for (const col of this.calendarCols) {
         if (!row.cells[col.iso]) row.cells[col.iso] = { groups: [] };
-
-        this.ensureSmartEmptySlots(row.cells[col.iso]);
-
+        this.ensureSmartEmptySlots(row.cells[col.iso], !row.isAutoOnly); // ← clave
       }
 
-      // Ordenar grupos y nombres
       for (const iso of Object.keys(row.cells)) {
         const cell = row.cells[iso];
-        // Orden por turno, franja, horas, puesto, máquina
         const rankFranja = (f: string) => {
           const order = ['06:00-10:00', '10:00-14:00', '14:00-18:00', '18:00-22:00', 'DIA_COMPLETO'];
           const idx = order.indexOf((f || '').toUpperCase());
@@ -314,18 +386,20 @@ export class DescansosY2EdicionComponent implements OnInit {
       }
     }
 
-    // Salida ordenada por reemplazo, dejando "— Sin asignar" al final
-    this.calendarRows = Array.from(rowsMap.values()).sort((a, b) => {
-      const A = a.reemplazo === SIN, B = b.reemplazo === SIN;
-      if (A && !B) return 1;
-      if (!A && B) return -1;
-      return a.reemplazo.localeCompare(b.reemplazo);
-    });
+    // 5) Orden de filas: 0) reales, 1) AUTO-ONLY, 2) "— Sin asignar"
+    const rowRank = (row: CalendarRow) => {
+      if (row.reemplazo === '— Sin asignar') return 2;
+      return row.isAutoOnly ? 1 : 0;
+    };
+
+    this.calendarRows = Array.from(rowsMap.values()).sort((a, b) =>
+      rowRank(a) - rowRank(b) || a.reemplazo.localeCompare(b.reemplazo)
+    );
   }
 
-  // Crea placeholders para todas las franjas de todos los turnos (si no hay grupos en la celda,
-  // muestra MAN/TAR con sus dos franjas vacías)
-  private ensureSmartEmptySlots(cell: CalendarCell) {
+  /** ✅ placeholders desactivables para filas AUTO-ONLY */
+  private ensureSmartEmptySlots(cell: CalendarCell, allowPlaceholders: boolean) {
+    if (!allowPlaceholders) return; // si es AUTO-ONLY, no generamos slots
     const ocupadas = cell.groups.filter(g => !g.empty);
     const hayDiaCompleto = ocupadas.some(
       g => (g.franja?.toUpperCase() === 'DIA_COMPLETO') || (g.horas ?? 0) >= 8
@@ -337,8 +411,7 @@ export class DescansosY2EdicionComponent implements OnInit {
         for (const franja of this.FRANJAS[turno]) {
           cell.groups.push({
             key: `—|—|${turno}|${franja}|4`,
-            puesto: '—', maquina: '—', turno, franja, horas: 4,
-            nombres: [], ids: [], empty: true
+            puesto: '—', maquina: '—', turno, franja, horas: 4, nombres: [], ids: [], empty: true
           });
         }
       }
@@ -353,8 +426,7 @@ export class DescansosY2EdicionComponent implements OnInit {
         if (!yaHayEsaFranja && !yaExistePlaceholder) {
           cell.groups.push({
             key: `—|—|${turno}|${franja}|4`,
-            puesto: '—', maquina: '—', turno, franja, horas: 4,
-            nombres: [], ids: [], empty: true
+            puesto: '—', maquina: '—', turno, franja, horas: 4, nombres: [], ids: [], empty: true
           });
         }
       }
@@ -369,7 +441,6 @@ export class DescansosY2EdicionComponent implements OnInit {
     if (!d) { this.snack.open('No se encontró el registro.', 'OK', { duration: 2000 }); return; }
     this.selected = d;
     this.selectedId = d.id!;
-    // Prellenar fActualizar
     this.fActualizar.patchValue({
       id: d.id!,
       nuevaFecha: this.parseIso(d.fechaReduccion!),
@@ -387,19 +458,17 @@ export class DescansosY2EdicionComponent implements OnInit {
     this.cdr.markForCheck();
   }
 
-  // Click en chip ocupado
   onClickPerson(group: CellGroup, idx: number) {
     const id = group.ids[idx];
     this.selectById(id);
   }
 
-  // Click en slot vacío: si hay selección => mover; si no => prellenar crear
-  onClickEmptySlot(iso: ISO, turno: string, franja: string) {
+  // Click en slot vacío: si hay selección → modal mover; si no → modal crear
+  onClickEmptySlot(iso: ISO, _turno: string, franja: string) {
     if (this.selectedId) {
-      this.moveSelectedToSlot(iso, turno, franja);
+      this.openMoveModalToTarget(iso, franja);
       return;
     }
-    // Prellenar crear
     this.fCrear.patchValue({
       colaboradorId: null,
       fecha: this.parseIso(iso),
@@ -409,15 +478,51 @@ export class DescansosY2EdicionComponent implements OnInit {
       acumuladasPrevias: true,
       forzar: false
     }, { emitEvent: true });
-    this.snack.open(`Formulario "Crear" prellenado para ${iso} · ${franja}`, 'OK', { duration: 2200 });
-    this.cdr.markForCheck();
+    this.openCrearModal({ fecha: iso, franja });
   }
 
-  // Mover seleccionado a un slot vacío concreto
-  private moveSelectedToSlot(iso: ISO, turno: string, franja: string) {
-    if (!this.selectedId) return;
+  // ===== Drag & Drop =====
+  onDragStart(e: CdkDragStart<number>) { this.draggingId = e.source.data ?? null; this.snack.dismiss(); }
+  onDragEnd(_: CdkDragEnd<number>) { this.draggingId = null; }
 
-    // Detecta horas reales del seleccionado
+  // Drop en slot vacío => modal mover
+  onDropToSlot(iso: ISO, _turno: string, franja: string, ev: CdkDragDrop<any>) {
+    const srcId = (ev?.item?.data ?? this.draggingId ?? this.selectedId) as number | null;
+    if (!srcId) return;
+    const d = this.descansosSemana.find(x => x.id === srcId);
+    if (!d) return;
+    this.selected = d;
+    this.selectedId = srcId;
+    this.openMoveModalToTarget(iso, franja);
+  }
+
+  // Drop sobre ocupado => modal swap
+  onDropOnOccupied(targetId: number, ev: CdkDragDrop<any>) {
+    const srcId = (ev?.item?.data ?? this.draggingId ?? this.selectedId) as number | null;
+    if (!srcId || srcId === targetId) return;
+    const a = this.descansosSemana.find(x => x.id === srcId) || null;
+    const b = this.descansosSemana.find(x => x.id === targetId) || null;
+    if (!a || !b) return;
+    this.swapA = a; this.swapB = b;
+    this.openSwapModal();
+  }
+
+  private openMoveModalToTarget(iso: ISO, franja: string) {
+    if (!this.selected) return;
+    const horasSel = (this.selected.horas ?? (this.selected.franja === 'DIA_COMPLETO' ? 8 : 4)) || 4;
+    this.fActualizar.patchValue({
+      id: this.selected.id!,
+      nuevaFecha: this.parseIso(iso),
+      horas: horasSel,
+      franja: horasSel === 8 ? 'DIA_COMPLETO' : (franja || null),
+      reemplazoId: null,
+      forzar: false
+    }, { emitEvent: false });
+    this.openEditarModal();
+  }
+
+  private moveSelectedToSlot(iso: ISO, _turno: string, franja: string) {
+    if (!this.selectedId) return;
     const selectedHoras =
       (this.selected?.horas ?? (this.selected?.franja === 'DIA_COMPLETO' ? 8 : 4)) || 4;
 
@@ -434,76 +539,12 @@ export class DescansosY2EdicionComponent implements OnInit {
     this.crud.actualizar(req).subscribe({
       next: () => {
         this.snack.open('✏️ Movido al slot seleccionado.', 'OK', { duration: 2000 });
+        this.pendingScrollIso = iso;
         this.selected = null;
         this.selectedId = null;
         this.cargar();
       },
       error: err => this.snack.open('Error al mover: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 })
-    }).add(() => { this.working = false; this.cdr.markForCheck(); });
-  }
-
-  // Eliminar desde chip por ID
-  eliminarById(id: number) {
-    const ref = this.dialog.open(ConfirmDialogComponent, {
-      data: {
-        title: 'Eliminar',
-        message: `¿Eliminar este descanso?`,
-        confirmText: 'Eliminar',
-        cancelText: 'Cancelar'
-      }
-    });
-    ref.afterClosed().subscribe((ok: boolean) => ok && this.eliminar(id));
-  }
-
-  // ===== Helpers de disponibilidad para crear =====
-  private recalcDisponiblesCrear() {
-    const v = this.fCrear.value;
-    if (!v.colaboradorId || !v.fecha || !v.horas) { this.disponiblesCrear = []; return; }
-    const fechaIso = this.toIsoLocal(v.fecha as Date);
-    const franja = v.horas === 8 ? 'DIA_COMPLETO' : (v.franja || null);
-
-    this.crud.getSugerencia({ colaboradorId: v.colaboradorId!, fecha: fechaIso, horas: v.horas!, franja })
-      .subscribe(sug => { this.turnoCrear = sug?.turno || null; this.cdr.markForCheck(); });
-
-    this.crud.getDisponibles({ colaboradorId: v.colaboradorId!, fecha: fechaIso, horas: v.horas!, franja })
-      .subscribe(list => { this.disponiblesCrear = list || []; this.cdr.markForCheck(); });
-  }
-
-  // ===== CRUD (tus métodos existentes, intactos) =====
-  crear() {
-    if (this.fCrear.invalid) { this.snack.open('Completa los datos requeridos.', 'OK', { duration: 2000 }); return; }
-    const v = this.fCrear.value;
-    this.working = true;
-    const req = {
-      colaboradorId: v.colaboradorId!,
-      fecha: this.toIsoLocal(v.fecha!),
-      horas: v.horas!,
-      franja: v.horas === 8 ? 'DIA_COMPLETO' : (v.franja || null),
-      reemplazoId: v.reemplazoId || null,
-      acumuladasPrevias: v.acumuladasPrevias ?? true,
-      forzar: v.forzar ?? false
-    };
-    this.crud.crear(req).subscribe({
-      next: () => { this.snack.open('✅ Descanso Y2 creado.', 'OK', { duration: 2200 }); this.cargar(); },
-      error: err => this.snack.open('Error al crear: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 })
-    }).add(() => { this.working = false; this.cdr.markForCheck(); });
-  }
-
-  actualizar() {
-    if (this.fActualizar.invalid) { this.snack.open('Selecciona el registro a actualizar.', 'OK', { duration: 2000 }); return; }
-    const v = this.fActualizar.value;
-    this.working = true;
-    const req = {
-      id: v.id!,
-      nuevaFecha: v.nuevaFecha ? this.toIsoLocal(v.nuevaFecha) : null,
-      horas: v.horas ?? null,
-      franja: v.horas === 8 ? 'DIA_COMPLETO' : (v.franja || null),
-      reemplazoId: v.reemplazoId || null,
-      forzar: v.forzar ?? false
-    };
-    this.crud.actualizar(req).subscribe({
-      next: () => { this.snack.open('✏️ Descanso Y2 actualizado.', 'OK', { duration: 2200 }); this.cargar(); },
-      error: err => this.snack.open('Error al actualizar: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 })
     }).add(() => { this.working = false; this.cdr.markForCheck(); });
   }
 
@@ -518,6 +559,10 @@ export class DescansosY2EdicionComponent implements OnInit {
     });
     ref.afterClosed().subscribe((ok: boolean) => ok && this.eliminar(d.id!));
   }
+  confirmarEliminarId(id: number) {
+    const d = this.descansosSemana.find(x => x.id === id);
+    if (d) this.confirmarEliminar(d);
+  }
 
   eliminar(id: number) {
     this.working = true;
@@ -527,9 +572,10 @@ export class DescansosY2EdicionComponent implements OnInit {
     }).add(() => { this.working = false; this.cdr.markForCheck(); });
   }
 
-  // Swap (conservado; además puedes combinar con selección desde calendario si quieres)
   pickSwapA(d: DescansoY2) { this.swapA = d; }
   pickSwapB(d: DescansoY2) { this.swapB = d; }
+  startSwapAById(id: number) { const d = this.descansosSemana.find(x => x.id === id); if (d) this.pickSwapA(d); }
+  startSwapBById(id: number) { const d = this.descansosSemana.find(x => x.id === id); if (d) this.pickSwapB(d); }
   doSwap() {
     if (!this.swapA || !this.swapB) { this.snack.open('Selecciona A y B para intercambiar.', 'OK', { duration: 2000 }); return; }
     if (this.swapA.id === this.swapB.id) { this.snack.open('A y B no pueden ser el mismo.', 'OK', { duration: 2000 }); return; }
@@ -538,6 +584,15 @@ export class DescansosY2EdicionComponent implements OnInit {
       next: () => { this.snack.open('🔁 Intercambio realizado.', 'OK', { duration: 2200 }); this.swapA = this.swapB = null; this.cargar(); },
       error: err => this.snack.open('Error en swap: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 })
     }).add(() => { this.working = false; this.cdr.markForCheck(); });
+  }
+
+  private openSwapModal() {
+    const ref = this.dialog.open(this.swapDialog, {
+      width: '640px',
+      autoFocus: false,
+      restoreFocus: false
+    });
+    ref.afterClosed().subscribe(res => { if (res === 'swap') this.doSwap(); });
   }
 
   // ==== Helpers varias ====
@@ -551,6 +606,52 @@ export class DescansosY2EdicionComponent implements OnInit {
     return item?.slotsVaciosDia || [];
   }
   volver() { this.router.navigate(['/descansos-y2'], { queryParams: { domingo: this.domingo } }); }
+  goToAcciones() {
+    setTimeout(() => document.getElementById('accionesPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  }
+
+  private scrollToIso(iso: ISO) {
+    const host = this.tableScrollRef?.nativeElement;
+    if (!host) return;
+    const target = host.querySelector(`td[data-iso="${iso}"]`) as HTMLElement | null
+      || host.querySelector(`th[data-iso="${iso}"]`) as HTMLElement | null;
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      this.flashColumn(iso);
+    }
+  }
+  private flashColumn(iso: ISO) {
+    const host = this.tableScrollRef?.nativeElement;
+    if (!host) return;
+    const cells = host.querySelectorAll<HTMLElement>(`[data-iso="${iso}"]`);
+    cells.forEach((el) => el.classList.add('flash'));
+    setTimeout(() => cells.forEach((el) => el.classList.remove('flash')), 1500);
+    this.cdr.markForCheck();
+  }
+
+  // ===== Modales =====
+  openCrearModal(preset?: { fecha?: ISO; franja?: string }) {
+    if (preset?.fecha) this.fCrear.get('fecha')!.setValue(this.parseIso(preset.fecha));
+    if (preset?.franja) this.fCrear.get('franja')!.setValue(preset.franja);
+    const ref = this.dialog.open(this.crearDialog, {
+      width: '760px',
+      autoFocus: false,
+      restoreFocus: false
+    });
+    ref.afterClosed().subscribe(res => { if (res === 'crear') this.crear(); });
+  }
+
+  openEditarModal() {
+    if (!this.fActualizar.value.id && this.selectedId) {
+      this.fActualizar.get('id')!.setValue(this.selectedId);
+    }
+    const ref = this.dialog.open(this.editarDialog, {
+      width: '760px',
+      autoFocus: false,
+      restoreFocus: false
+    });
+    ref.afterClosed().subscribe(res => { if (res === 'guardar') this.actualizar(); });
+  }
 
   // ===== Fechas
   private toIsoLocal(d: Date): ISO {
@@ -570,20 +671,67 @@ export class DescansosY2EdicionComponent implements OnInit {
     return this.toIsoLocal(sunday);
   }
 
+  // ===== CRUD =====
+  crear() {
+    if (this.fCrear.invalid) { this.snack.open('Completa los datos requeridos.', 'OK', { duration: 2000 }); return; }
+    const v = this.fCrear.value;
+    this.working = true;
+    const req = {
+      colaboradorId: v.colaboradorId!,
+      fecha: this.toIsoLocal(v.fecha!),
+      horas: v.horas!,
+      franja: v.horas === 8 ? 'DIA_COMPLETO' : (v.franja || null),
+      reemplazoId: v.reemplazoId || null,
+      acumuladasPrevias: v.acumuladasPrevias ?? true,
+      forzar: v.forzar ?? false
+    };
+    this.crud.crear(req).subscribe({
+      next: () => {
+        const iso = this.toIsoLocal(this.fCrear.value.fecha!);
+        this.pendingScrollIso = iso;
+        this.snack.open('✅ Reduccion creada.', 'OK', { duration: 2200 });
+        this.cargar();
+      },
+      error: err => this.snack.open('Error al crear: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 })
+    }).add(() => { this.working = false; this.cdr.markForCheck(); });
+  }
+
+  actualizar() {
+    if (this.fActualizar.invalid) { this.snack.open('Selecciona el registro a actualizar.', 'OK', { duration: 2000 }); return; }
+    const v = this.fActualizar.value;
+    this.working = true;
+    const req = {
+      id: v.id!,
+      nuevaFecha: v.nuevaFecha ? this.toIsoLocal(v.nuevaFecha) : null,
+      horas: v.horas ?? null,
+      franja: v.horas === 8 ? 'DIA_COMPLETO' : (v.franja || null),
+      reemplazoId: v.reemplazoId || null,
+      forzar: v.forzar ?? false
+    };
+    this.crud.actualizar(req).subscribe({
+      next: () => {
+        const iso = this.fActualizar.value.nuevaFecha ? this.toIsoLocal(this.fActualizar.value.nuevaFecha) : (this.selected?.fechaReduccion || null);
+        if (iso) this.pendingScrollIso = iso;
+        this.snack.open('✏️ Reduccion actualizada.', 'OK', { duration: 2200 });
+        this.cargar();
+      },
+      error: err => this.snack.open('Error al actualizar: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 })
+    }).add(() => { this.working = false; this.cdr.markForCheck(); });
+  }
+
   otorgarHoras() {
     if (this.fOtorgar.invalid) {
       this.snack.open('Selecciona colaborador y horas válidas.', 'OK', { duration: 2000 });
       return;
     }
-
     const v = this.fOtorgar.value;
     this.working = true;
 
     const req: Y2OtorgarHorasRequest = {
-      domingoBase: this.domingo,                         // ← requerido por el tipo
-      colaboradorId: v.colaboradorId!,                   // number
-      horas: Number(v.horas) || 0,                       // number
-      diferirASiguiente: !!v.diferirASiguiente           // boolean
+      domingoBase: this.domingo,
+      colaboradorId: v.colaboradorId!,
+      horas: Number(v.horas) || 0,
+      diferirASiguiente: !!v.diferirASiguiente
     };
 
     this.crud.otorgarHoras(req).subscribe({
@@ -601,4 +749,71 @@ export class DescansosY2EdicionComponent implements OnInit {
     });
   }
 
+  editFromMenu(): void {
+    const id = this.menuActiveId;
+    if (id) this.selectById(id);
+    this.goToAcciones();
+  }
+
+  cancelSwapA() { this.swapA = null; }
+  cancelSwapB() { this.swapB = null; }
+
+  moveSelectedToA() {
+    if (!this.selected || !this.selectedId || !this.swapA) {
+      this.snack.open('Selecciona un registro y marca A (Elegido).', 'OK', { duration: 2000 });
+      return;
+    }
+    const iso = this.swapA.fechaReduccion!;
+    const turno = this.canonTurno(this.swapA.turno) !== 'SIN'
+      ? this.canonTurno(this.swapA.turno)
+      : this.canonTurnoFromFranja(this.swapA.franja);
+    const franja = (this.swapA.horas ?? 0) === 8 ? 'DIA_COMPLETO' : (this.swapA.franja || '06:00-10:00');
+    this.moveSelectedToSlot(iso, turno, franja);
+  }
+
+  editFromMenuModal(): void {
+    const id = this.menuActiveId;
+    if (id) { this.selectById(id); this.openEditarModal(); }
+    else { this.snack.open('Primero selecciona un registro.', 'OK', { duration: 2000 }); }
+  }
+
+  recalcDisponiblesCrear(): void {
+    const v = this.fCrear.value;
+
+    // 1) Base por backlog del titular seleccionado
+    const item = v.colaboradorId ? this.backlogDe(v.colaboradorId) : undefined;
+    let lista: Y2DisponibilidadDTO[] = (item?.y2Disponibles ?? []).slice();
+
+    // 2) Fallback robusto
+    if (!lista.length && this.backlog?.length) {
+      const candidatos = this.backlog
+        .filter(b => (b.grupo || '').toUpperCase().includes('Y2') && b.colaboradorId !== v.colaboradorId)
+        .map(b => ({
+          colaboradorId: b.colaboradorId,
+          nombre: b.nombre,
+          observacionCompatibilidad: 'Candidato Y2 (fallback)'
+        } as Y2DisponibilidadDTO));
+
+      const uniq = new Map<number, Y2DisponibilidadDTO>();
+      for (const c of candidatos) uniq.set(c.colaboradorId, c);
+      lista = Array.from(uniq.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    }
+
+    this.disponiblesCrear = lista;
+
+    // 3) Determinar turnoCrear (para combo de franjas)
+    let turno: 'MAN' | 'TAR' | 'SIN' = 'SIN';
+    if (v.franja) turno = this.canonTurnoFromFranja(v.franja);
+    else if ((item as any)?.turnoSugerido) turno = this.canonTurno((item as any).turnoSugerido);
+    if (turno === 'SIN') turno = 'MAN';
+    this.turnoCrear = turno;
+
+    // 4) Coherencia horas/franja
+    if (v.horas === 8) this.fCrear.get('franja')!.setValue('DIA_COMPLETO', { emitEvent: false });
+    else if (v.horas === 4 && this.fCrear.value.franja === 'DIA_COMPLETO') {
+      this.fCrear.get('franja')!.setValue(null, { emitEvent: false });
+    }
+
+    this.cdr.markForCheck();
+  }
 }

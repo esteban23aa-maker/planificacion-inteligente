@@ -58,3 +58,21 @@ export interface Y2OtorgarHorasRequest {
   horas: number;
   diferirASiguiente?: boolean;
 }
+
+// Respuesta estándar del backend para crear/actualizar/swap
+export interface DescansoY2DTO {
+  id: number;
+  domingoBase: string;       // ISO 'YYYY-MM-DD'
+  fechaReduccion: string;    // ISO
+  horas: number;             // 4 u 8
+  modalidad: string;         // 'FRACCIONADO' | 'COMPLETO' | 'AUTO_Y2'
+  estado: string;            // 'ASIGNADO' ...
+  acumuladasPrevias: boolean;
+  colaborador: string | null;
+  reemplazo: string | null;
+  puesto: string | null;
+  maquina: string | null;
+  turno: string | null;      // 'MAN' | 'TAR'
+  franja: string | null;     // '06:00-10:00' | ... | 'DIA_COMPLETO'
+}
+

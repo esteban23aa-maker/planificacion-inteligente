@@ -29,5 +29,8 @@ export interface ColaboradorDetallado {
   turnoFijo?: string;       // ejemplo: "14-22"
   turnoFijoId?: number;     // ejemplo: 2
   turno?: string;
+
+  pendienteEliminacion?: boolean;
+  fechaEliminacionProgramada?: string; // ISO (yyyy-MM-dd)
 }
 

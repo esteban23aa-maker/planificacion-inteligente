@@ -1,4 +1,4 @@
-// C:\Proyectos\planificacion-inteligente\src\app\core\services\descansos-y2-crud.service.ts
+// --- src/app/core/services/descansos-y2-crud.service.ts ---
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -8,9 +8,9 @@ import {
   Y2UpdateRequest,
   Y2SwapRequest,
   Y2OtorgarHorasRequest,
-  Y2DisponibilidadDTO
+  Y2DisponibilidadDTO,
+  DescansoY2DTO
 } from '../models/descanso-y2-crud.model';
-import { DescansoY2 } from '../models/descanso-y2.model';
 
 @Injectable({ providedIn: 'root' })
 export class DescansosY2CrudService {
@@ -23,26 +23,26 @@ export class DescansosY2CrudService {
     return this.http.get<Y2BacklogItemDTO[]>(`${this.base}/backlog`, { params });
   }
 
-  crear(req: Y2CreateRequest): Observable<DescansoY2> {
-    return this.http.post<DescansoY2>(`${this.base}/crear`, req);
+  crear(req: Y2CreateRequest): Observable<DescansoY2DTO> {
+    return this.http.post<DescansoY2DTO>(`${this.base}/crear`, req);
   }
 
-  actualizar(req: Y2UpdateRequest): Observable<DescansoY2> {
-    return this.http.put<DescansoY2>(`${this.base}/actualizar`, req);
+  actualizar(req: Y2UpdateRequest): Observable<DescansoY2DTO> {
+    return this.http.put<DescansoY2DTO>(`${this.base}/actualizar`, req);
   }
 
   eliminar(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
 
-  swap(req: Y2SwapRequest): Observable<DescansoY2[]> {
-    return this.http.post<DescansoY2[]>(`${this.base}/swap`, req);
+  swap(req: Y2SwapRequest): Observable<DescansoY2DTO[]> {
+    return this.http.post<DescansoY2DTO[]>(`${this.base}/swap`, req);
   }
 
   otorgarHoras(req: Y2OtorgarHorasRequest) {
     return this.http.post(`${this.base}/otorgar-horas`, req);
   }
-  // descansos-y2-crud.service.ts
+
   getDisponibles(params: { colaboradorId: number; fecha: string; horas: number; franja?: string | null }) {
     const p: any = { colaboradorId: params.colaboradorId, fecha: params.fecha, horas: params.horas };
     if (params.franja) p.franja = params.franja;
@@ -55,5 +55,4 @@ export class DescansosY2CrudService {
     if (params.franja) p.franja = params.franja;
     return this.http.get<{ turno: string; franjaSugerida: string }>(`${this.base}/sugerencia`, { params: p });
   }
-
 }
