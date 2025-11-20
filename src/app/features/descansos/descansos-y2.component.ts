@@ -297,7 +297,7 @@ export class DescansosY2Component implements OnInit {
 
     this.fullscreenLoading = true;
     this.svc.generar(this.domingoActual).subscribe({
-      next: () => { this.snack.open('✅ Reducciones Y2 generadas.', 'OK', { duration: 2500 }); this.cargar(this.domingoActual); },
+      next: () => { this.snack.open('✅ Reducciones generadas.', 'OK', { duration: 2500 }); this.cargar(this.domingoActual); },
       error: err => this.snack.open('Error al generar: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 })
     }).add(() => this.fullscreenLoading = false);
   }

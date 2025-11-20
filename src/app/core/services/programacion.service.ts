@@ -70,4 +70,13 @@ export class ProgramacionService {
     return this.http.get<Asignacion[]>(`${environment.apiUrl}/programacion-semanal/por-fecha`, { params });
   }
 
+  eliminarSemana(lunes: string): Observable<string> {
+    const params = new HttpParams().set('lunes', lunes);
+    return this.http.delete(`${this.apiUrl}/eliminar-semana`, {
+      params,
+      responseType: 'text'
+    });
+  }
+
+
 }
