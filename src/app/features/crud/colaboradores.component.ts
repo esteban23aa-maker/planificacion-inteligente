@@ -80,7 +80,7 @@ export class ColaboradoresComponent implements OnInit {
   roles: Rol[] = [];
   puestos: Puesto[] = [];
   maquinas: Maquina[] = [];
-  grupos: string[] = ['Titular', 'Y1', 'Y2'];
+  grupos: string[] = ['Titular', 'Y1', 'Y2', 'PENDIENTE'];
   turnosGrupo: string[] = [];
 
   coordinadoresDisponibles: ColaboradorDetallado[] = [];
@@ -381,7 +381,7 @@ export class ColaboradoresComponent implements OnInit {
     const grupo = (this.nuevo.grupo ?? '').toUpperCase();
 
     if (!nombre || !documento) { this.cargando = false; return this.toast('Nombre y documento son obligatorios.'); }
-    if (!['TITULAR', 'Y1', 'Y2'].includes(grupo)) { this.cargando = false; return this.toast(`Grupo inválido: "${grupo}".`); }
+    if (!['TITULAR', 'Y1', 'Y2', 'PENDIENTE'].includes(grupo)) { this.cargando = false; return this.toast(`Grupo inválido: "${grupo}".`); }
 
     const esTitular = this.isTitular(grupo);
     const esCoordinador = this.nuevo.puesto?.nombre?.toUpperCase() === 'COORDINADOR';

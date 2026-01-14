@@ -9,18 +9,75 @@
               [queryParams]="{ domingo: domingoActual }">
         <mat-icon class="mr-1">edit</mat-icon> Editar reducción
       </button>
+
       <button mat-stroked-button color="primary" (click)="generar()">
         <mat-icon class="mr-1">auto_mode</mat-icon> Generar reducciones
       </button>
+
       <button mat-stroked-button color="warn" (click)="eliminar()">
         <mat-icon class="mr-1">delete_forever</mat-icon> Eliminar reducciones
       </button>
+
       <button mat-stroked-button color="accent" (click)="exportarExcel()" *ifRoles="['SUPERVISOR','ADMIN']">
         <mat-icon class="mr-1">table_view</mat-icon> Exportar Excel
       </button>
     </ng-container>
   </div>
 </ui-page-header>
+
+<!-- --- Botonera generación por partes --- -->
+<div class="pro-toolbar card single">
+
+  <div class="right flex items-center gap-2 flex-wrap">
+    <button mat-stroked-button color="primary"
+            [disabled]="genLoading.NOCHE"
+            (click)="run('NOCHE')">
+      <mat-icon *ngIf="!genLoading.NOCHE">nights_stay</mat-icon>
+      <mat-progress-spinner *ngIf="genLoading.NOCHE" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
+      Generar Noche
+    </button>
+
+    <button mat-stroked-button color="primary"
+            [disabled]="genLoading.MANANA"
+            (click)="run('MANANA')">
+      <mat-icon *ngIf="!genLoading.MANANA">wb_sunny</mat-icon>
+      <mat-progress-spinner *ngIf="genLoading.MANANA" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
+      Generar Mañana
+    </button>
+
+    <button mat-stroked-button color="primary"
+            [disabled]="genLoading.TARDE"
+            (click)="run('TARDE')">
+      <mat-icon *ngIf="!genLoading.TARDE">wb_twilight</mat-icon>
+      <mat-progress-spinner *ngIf="genLoading.TARDE" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
+      Generar Tarde
+    </button>
+
+    <button mat-stroked-button color="primary"
+            [disabled]="genLoading.TURNO_FIJO"
+            (click)="run('TURNO_FIJO')">
+      <mat-icon *ngIf="!genLoading.TURNO_FIJO">schedule</mat-icon>
+      <mat-progress-spinner *ngIf="genLoading.TURNO_FIJO" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
+      Generar Turno Fijo
+    </button>
+
+    <button mat-stroked-button color="accent"
+            [disabled]="genLoading.GRUPO_Y2"
+            (click)="run('GRUPO_Y2')">
+      <mat-icon *ngIf="!genLoading.GRUPO_Y2">group</mat-icon>
+      <mat-progress-spinner *ngIf="genLoading.GRUPO_Y2" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
+      Generar Grupo Y2
+    </button>
+
+    <button mat-stroked-button color="accent"
+            [disabled]="genLoading.GRUPO_Y1"
+            (click)="run('GRUPO_Y1')">
+      <mat-icon *ngIf="!genLoading.GRUPO_Y1">person</mat-icon>
+      <mat-progress-spinner *ngIf="genLoading.GRUPO_Y1" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
+      Generar Grupo Y1
+    </button>
+  </div>
+</div>
 
 <!-- Toolbar -->
 <div class="pro-toolbar">
@@ -98,7 +155,11 @@
                 </div>
               </div>
             </ng-container>
-            <ng-template #empty>—</ng-template>
+            <div class="overlay-badge compensatorio"
+                 *ngIf="isY1Ocupado(row.reemplazo, col.iso)">
+              Compensatorio
+            </div>
+            <ng-template #empty> </ng-template>
           </td>
         </tr>
       </tbody>
@@ -146,6 +207,78 @@
     </ng-template>
   </div>
 </div>
+
+<div class="table-shell card mt-4" *ngIf="!loading">
+  <h4 class="p-3">📋 Reducciones por colaborador (L–S)</h4>
+
+  <div class="table-scroll">
+    <table class="table table-bordered text-center">
+      <thead class="table-head">
+        <tr>
+          <th>Colaborador</th>
+          <th *ngFor="let col of calendarCols.slice(0,6)">
+            {{ col.label }}<br>
+            <small>{{ col.iso }}</small>
+          </th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let r of resumenColaboradores"
+            [class.turno-noche]="r.esNoche"
+            [class.venia-noche]="r.veniaDeNoche"
+            [class.turno-manana]="r.esManana">
+          <td class="name-cell">
+            <div class="name-line">
+              <strong>{{ r.nombre }}</strong>
+              <span *ngIf="r.y2UltimoDiaDisplay" class="chip mini seed">
+                Último: {{ dayMap[r.y2UltimoDiaDisplay] || r.y2UltimoDiaDisplay }}
+                <span *ngIf="r.y2DisplayForzado" class="seed-flag">• forzado</span>
+              </span>
+              <button *ifRoles="['ADMIN','SUPERVISOR']"
+                      class="mini-icon-btn"
+                      mat-icon-button
+                      (click)="abrirEditarSeed(r)"
+                      aria-label="Editar último día de reducción">
+                <mat-icon>tune</mat-icon>
+              </button>
+            </div>
+          </td>
+
+          <td *ngFor="let col of calendarCols.slice(0,6)">
+            <ng-container *ngIf="r[col.iso] as x; else none">
+              <div class="chip tone">{{ x.reemplazo }}</div>
+              <div class="chip mini">{{ x.franja }}</div>
+              <div class="chip mini">{{ x.horas }}h</div>
+            </ng-container>
+            <ng-template #none>—</ng-template>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div *ngIf="mostrarEditarSeed" class="seed-editor-overlay">
+  <div class="seed-editor-card">
+    <h3 class="mb-2">Último día de reducción</h3>
+    <div class="row">
+      <mat-form-field appearance="outline" class="w-100">
+        <mat-label>Último día</mat-label>
+        <select matNativeControl [(ngModel)]="seedEditModel.day">
+          <option *ngFor="let d of diasPermitidos" [value]="d.key">{{ d.label }}</option>
+        </select>
+      </mat-form-field>
+    </div>
+
+    <div class="actions mt-3">
+      <button mat-stroked-button (click)="mostrarEditarSeed=false">Cancelar</button>
+      <button mat-flat-button color="primary" (click)="guardarSeed()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+
 <!-- Footer / Density -->
 <div class="footer-actions">
   <div class="footer-center">

@@ -55,4 +55,15 @@ export class DescansosY2CrudService {
     if (params.franja) p.franja = params.franja;
     return this.http.get<{ turno: string; franjaSugerida: string }>(`${this.base}/sugerencia`, { params: p });
   }
+
+  resetDerechos(domingo: string) {
+    const params: any = {};
+    if (domingo) params.domingo = domingo; // 👈 el backend espera ?domingo=YYYY-MM-DD
+    return this.http.post<{ domingoBase: string | null; colaboradoresAfectados: number; status: string }>(
+      `${this.base}/reset-derechos`,
+      {},                                  // body vacío
+      { params }                           // 👈 query param
+    );
+  }
+
 }

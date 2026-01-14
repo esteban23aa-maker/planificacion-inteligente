@@ -1,12 +1,14 @@
 <ui-page-header title="Programación semanal" [subtitle]="subtitle" [actions]="true">
   <div actions class="flex flex-wrap gap-2 ml-auto">
     <button *ifRoles="'ADMIN'" mat-stroked-button color="warn" (click)="eliminarTodo()">Limpiar semanas</button>
-    <button *ifRoles="['SUPERVISOR','ADMIN']" mat-flat-button color="warn" (click)="eliminarSemanaActual()">
-      <mat-icon class="mr-1">delete</mat-icon>
-      Eliminar semana actual
-    </button>
     <button *ifRoles="['SUPERVISOR','ADMIN']" mat-flat-button color="primary" (click)="confirmarRegenerarSemana()">
       <mat-icon class="mr-1">autorenew</mat-icon> Regenerar
+    </button>
+    <button *ifRoles="['SUPERVISOR','ADMIN']"
+            mat-stroked-button color="warn"
+            (click)="eliminarSemanaActual()">
+      <mat-icon class="mr-1">delete_sweep</mat-icon>
+      Eliminar semana actual
     </button>
     <button mat-stroked-button color="accent" (click)="exportarExcel()" *ifRoles="['SUPERVISOR','ADMIN']">
       <mat-icon class="mr-1">table_view</mat-icon> Exportar Excel

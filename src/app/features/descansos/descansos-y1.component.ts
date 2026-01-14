@@ -22,6 +22,7 @@ import { PageHeaderComponent } from 'src/app/ui/page-header/page-header.componen
 import { IfRolesDirective } from 'src/app/shared/directives/if-roles.directive';
 import { ConfirmDialogComponent } from '../programacion/dialogs/confirm-dialog.component';
 import { AuthService } from 'src/app/core/services/auth.service';
+import { DescansosY2Service } from 'src/app/core/services/descansos-y2.service';
 
 type ISODate = string;
 
@@ -55,6 +56,8 @@ export class DescansosY1Component implements OnInit {
   private dialog = inject(MatDialog);
   private auth = inject(AuthService);
   private excel = inject(ExcelExportService);
+  private y2 = inject(DescansosY2Service);
+  private overlayY2Reduc = new Map<string, Set<ISODate>>();
 
   trabajadores: TrabajadorDomingo[] = [];
   reemplazos: ReemplazoY1[] = [];
@@ -127,25 +130,53 @@ export class DescansosY1Component implements OnInit {
     const t = this.toIsoLocal(new Date());
     return t === iso;
   }
+  // helper para normalizar nombres (tildes, mayúsculas y espacios)
+  private norm(s?: string | null): string {
+    return (s || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+      .toUpperCase();
+  }
 
-  // ===== Datos / calendario =====
   cargarDatos(domingo?: string): void {
     this.loading = true;
     forkJoin({
       trabajadores: this.svc.getTrabajadores(domingo),
       reemplazos: this.svc.getReemplazos(domingo),
-      descansos: this.svc.getDescansos(domingo)
+      descansos: this.svc.getDescansos(domingo),
+      y2: this.y2.getDescansos(domingo)
     }).subscribe({
-      next: ({ trabajadores, reemplazos, descansos }) => {
+      next: ({ trabajadores, reemplazos, descansos, y2 }) => {
         this.trabajadores = trabajadores;
         this.reemplazos = reemplazos;
         this.descansos = descansos;
+
+        this.overlayY2Reduc.clear();
+        for (const d of y2 || []) {
+          const modalidad = (d.modalidad || '').toUpperCase();
+          if (modalidad.includes('AUTO')) continue; // no ocupa a nadie
+
+          const key = this.norm(d.reemplazo);
+          if (!key || key === '—') continue;
+
+          const iso = d.fechaReduccion;
+          if (!this.overlayY2Reduc.has(key)) this.overlayY2Reduc.set(key, new Set<ISODate>());
+          this.overlayY2Reduc.get(key)!.add(iso);
+        }
+
         this.buildCalendar();
         this.loading = false;
       },
       error: () => { this.loading = false; }
     });
   }
+
+  // y el helper del template usa norm:
+  tieneReduccion(nombreFila: string, iso: ISODate): boolean {
+    return this.overlayY2Reduc.get(this.norm(nombreFila))?.has(iso) ?? false;
+  }
+
 
   private buildCalendar() {
     const rowsMap = new Map<string, CalendarRow>();

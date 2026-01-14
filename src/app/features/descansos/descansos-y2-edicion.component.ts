@@ -816,4 +816,29 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
 
     this.cdr.markForCheck();
   }
+
+  resetDerechos() {
+    const d = this.domingo;
+    const ok = confirm(
+      `Esto consumirá backlog FIFO:\n\n` +
+      `• Semana con turno NOCHE: se retiene 4h si tenía >4\n` +
+      `• Demás semanas: backlog quedará en 0h\n\n` +
+      `¿Continuar para la semana base ${d}?`
+    );
+if (!ok) return;
+
+    this.working = true;
+    this.crud.resetDerechos(d).subscribe({
+      next: (res: any) => {
+        const base = res?.domingoBase || this.domingo;
+        // Compatibilidad si algún día cambiaste la clave en backend
+        const afectados = res?.colaboradoresAfectados ?? res?.afectados ?? 0;
+
+        const msg = `Reset OK. Colaboradores ajustados: ${afectados}. Semana base: ${base}`;
+        this.snack.open(msg, 'OK', { duration: 4500 });
+        this.cargar();
+      },
+      error: err => this.snack.open('Error en reset: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 })
+    }).add(() => { this.working = false; this.cdr.markForCheck(); });
+  }
 }

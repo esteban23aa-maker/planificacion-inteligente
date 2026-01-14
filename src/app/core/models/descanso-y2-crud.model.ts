@@ -76,3 +76,4 @@ export interface DescansoY2DTO {
   franja: string | null;     // '06:00-10:00' | ... | 'DIA_COMPLETO'
 }
 
+

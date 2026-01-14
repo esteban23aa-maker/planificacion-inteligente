@@ -227,44 +227,11 @@ export class ProgramacionSemanalComponent implements OnInit {
       this.snack.open('No autorizado', 'OK', { duration: 2500 });
       return;
     }
-
-    // 1️⃣ confirmación de borrado
     const ok = await this.abrirConfirmacion(
-      `⚠️ Esto eliminará la programación existente de la semana del ${this.lunesInicio}. ¿Deseas continuar?`
+      `¿Estás seguro de que deseas generar la semana del ${this.lunesInicio}? Esto eliminará cualquier programación existente.`
     );
-    if (!ok) return;
-
-    // 2️⃣ abrir diálogo para elegir el modo
-    const ref = this.dialog.open(GenerarSemanaDialogComponent, {
-      data: {
-        mensaje: `Selecciona cómo deseas regenerar la semana del ${this.lunesInicio}`,
-        checkboxManana: this.checkboxManana,
-        checkboxNoche: this.checkboxNoche
-      }
-    });
-
-    const result = await firstValueFrom(ref.afterClosed());
-    if (!result?.confirmed) return;
-
-    // 3️⃣ generar con el modo elegido
-    this.cargando = true;
-    this.fullscreenLoading = true;
-
-    this.programacionService.generarProgramacion(this.lunesInicio, result.mode)
-      .subscribe({
-        next: (msg) => {
-          this.mostrarAlerta(`✅ Semana regenerada correctamente: ${msg}`);
-          this.obtenerAsignacionesPorSemana();
-        },
-        error: (err) => {
-          console.error('❌ Error regenerando semana:', err);
-          this.mostrarAlerta('❌ No se pudo regenerar la programación.');
-          this.cargando = false;
-        }
-      })
-      .add(() => this.fullscreenLoading = false);
+    if (ok) this.generarSemana();
   }
-
 
   async eliminarTodo(): Promise<void> {
     if (!this.auth.hasAnyRole(['SUPERVISOR', 'ADMIN'])) {
@@ -314,24 +281,38 @@ export class ProgramacionSemanalComponent implements OnInit {
       return;
     }
 
+    // ✅ construir fecha local, no usar new Date('YYYY-MM-DD')
+    const [y, m, d] = this.lunesInicio.split('-').map(Number);
+    const fecha = new Date(y, (m ?? 1) - 1, d ?? 1); // local midnight
+
+    if (isNaN(fecha.getTime())) {
+      this.mostrarAlerta('⚠️ Fecha inválida.');
+      return;
+    }
+    if (fecha.getDay() !== 1) { // 1 = Lunes
+      this.mostrarAlerta('⚠️ La fecha debe corresponder a un lunes.');
+      return;
+    }
+
     const ok = await this.abrirConfirmacion(
-      `⚠️ ¿Eliminar SOLO la semana del ${this.lunesInicio}?`
+      `¿Eliminar TODAS las asignaciones de la semana iniciada en ${this.lunesInicio}?`
     );
     if (!ok) return;
 
+    this.cargando = true;
     this.programacionService.eliminarSemana(this.lunesInicio).subscribe({
       next: (msg) => {
-        this.mostrarAlerta(msg);
+        this.mostrarAlerta(msg || '✅ Semana eliminada correctamente.');
         this.obtenerAsignacionesPorSemana();
       },
       error: (err) => {
-        console.error('❌ Error eliminando semana:', err);
-        const mensaje = err?.error || '❌ No se pudo eliminar la semana.';
+        console.error('❌ Error al eliminar semana específica:', err);
+        const mensaje = (err?.error as string) || '❌ No se pudo eliminar la semana.';
         this.mostrarAlerta(mensaje);
-      }
+        this.cargando = false;
+      },
     });
   }
-
 
   activarModoCambioTurnos(): void {
     if (!this.auth.hasAnyRole(['SUPERVISOR', 'ADMIN'])) {

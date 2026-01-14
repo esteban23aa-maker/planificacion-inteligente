@@ -71,12 +71,10 @@ export class ProgramacionService {
   }
 
   eliminarSemana(lunes: string): Observable<string> {
-    const params = new HttpParams().set('lunes', lunes);
+    const params = new HttpParams().set('lunes', lunes); // YYYY-MM-DD (debe ser Lunes)
     return this.http.delete(`${this.apiUrl}/eliminar-semana`, {
       params,
-      responseType: 'text'
+      responseType: 'text',
     });
   }
-
-
 }

@@ -238,6 +238,9 @@
         <h3 id="accionesPanel">Acciones</h3>
         <small class="muted">Crear, mover, eliminar, intercambiar y otorgar horas.</small>
       </header>
+      <button mat-stroked-button color="warn" (click)="resetDerechos()" *ifRoles="['SUPERVISOR','ADMIN']">
+        <mat-icon class="mr-1">cleaning_services</mat-icon> Reset derechos
+      </button>
 
       <div class="actions-grid">
         <!-- CREAR -->

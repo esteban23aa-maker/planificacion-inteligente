@@ -5,6 +5,7 @@ import { forkJoin, firstValueFrom } from 'rxjs';
 import { RouterModule } from '@angular/router';
 
 // Material
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -13,15 +14,19 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 // App
 import { ExcelExportService } from 'src/app/core/services/excel-export.service';
-import { DescansosY2Service } from 'src/app/core/services/descansos-y2.service';
+import { DescansosY2Service, Y2GenModo } from 'src/app/core/services/descansos-y2.service';
 import { DescansoY2, ReemplazoY2, IncidenciaY2 } from 'src/app/core/models/descanso-y2.model';
 import { PageHeaderComponent } from 'src/app/ui/page-header/page-header.component';
 import { IfRolesDirective } from 'src/app/shared/directives/if-roles.directive';
 import { ConfirmDialogComponent } from 'src/app/features/programacion/dialogs/confirm-dialog.component';
 import { AuthService } from 'src/app/core/services/auth.service';
+import { DescansosY1Service } from 'src/app/core/services/descansos-y1.service';
 
 type ISODate = string;
 
@@ -44,6 +49,8 @@ type Density = 'comfortable' | 'compact' | 'ultra';
     // Material
     MatButtonModule, MatIconModule, MatSnackBarModule, MatProgressBarModule,
     MatFormFieldModule, MatInputModule, MatDialogModule, MatButtonToggleModule,
+    MatDatepickerModule, MatNativeDateModule, MatProgressSpinnerModule,
+    MatCheckboxModule,
     // UI
     PageHeaderComponent, IfRolesDirective, RouterModule,
   ],
@@ -58,6 +65,8 @@ export class DescansosY2Component implements OnInit {
   private dialog = inject(MatDialog);
   private auth = inject(AuthService);
   private excel = inject(ExcelExportService);
+  private y1 = inject(DescansosY1Service);
+  private overlayY1Busy = new Map<string, Set<ISODate>>();
 
   reemplazos: ReemplazoY2[] = [];
   descansos: DescansoY2[] = [];
@@ -66,16 +75,24 @@ export class DescansosY2Component implements OnInit {
   calendarCols: CalendarCol[] = [];
   calendarRows: CalendarRow[] = [];
 
-  loading = true;
-  fullscreenLoading = false;
+  loading = true;               // carga de datos de la página
+  fullscreenLoading = false;    // overlay para generar/eliminar "todo"
 
-  domingoActual!: string; // 'YYYY-MM-DD'
+  domingoActual!: string; // 'YYYY-MM-DD' (semana visible en la tabla)
   habilitaAnterior = false;
   habilitaSiguiente = false;
+
+
+  // Estados de carga por botón de generación parcial
+  genLoading: Record<Y2GenModo, boolean> = {
+    NOCHE: false, MANANA: false, TARDE: false,
+    TURNO_FIJO: false, GRUPO_Y2: false, GRUPO_Y1: false
+  };
 
   // Filtros
   filtroReemplazo = '';
   filtroNombre = '';
+  resumenColaboradores: any[] = [];
 
   // Densidad UI
   density: Density = (localStorage.getItem('descansos.y2.density') as Density) || 'comfortable';
@@ -135,20 +152,44 @@ export class DescansosY2Component implements OnInit {
   // ===== Datos =====
   cargar(domingo?: string) {
     this.loading = true;
+
     forkJoin({
       reemplazos: this.svc.getReemplazos(domingo),
       descansos: this.svc.getDescansos(domingo),
-      incidencias: this.svc.getIncidencias(domingo)
+      incidencias: this.svc.getIncidencias(domingo),
+      resumen: this.svc.getResumenColaboradores(domingo),
+      // ↓ NUEVO: traemos los Y1 para saber en qué días están ocupados como reemplazo
+      y1Descansos: this.y1.getDescansos(domingo)
     }).subscribe({
-      next: ({ reemplazos, descansos, incidencias }) => {
+      next: ({ reemplazos, descansos, incidencias, resumen, y1Descansos }) => {
         this.reemplazos = reemplazos;
         this.descansos = descansos;
         this.incidencias = incidencias || [];
+        this.resumenColaboradores = resumen;
+
+        // ---- construir overlay “Compensatorio” (Y1 ocupado) ----
+        this.overlayY1Busy.clear();
+        for (const d of y1Descansos || []) {
+          const nombreY1 = (d.reemplazo || '').trim();   // persona del grupo Y1 que hizo el reemplazo
+          const iso = d.fechaDescanso;                    // ISO del día
+          if (!nombreY1) continue;
+          if (!this.overlayY1Busy.has(nombreY1)) this.overlayY1Busy.set(nombreY1, new Set());
+          this.overlayY1Busy.get(nombreY1)!.add(iso);
+        }
+
         this.buildCalendar();
         this.loading = false;
       },
-      error: () => { this.loading = false; this.snack.open('⚠️ Error cargando Y2', 'OK', { duration: 3000 }); }
+      error: () => {
+        this.loading = false;
+        this.snack.open('⚠️ Error cargando Y2', 'OK', { duration: 3000 });
+      }
     });
+  }
+
+  // Helper para el template
+  isY1Ocupado(nombreFila: string, iso: ISODate): boolean {
+    return this.overlayY1Busy.get((nombreFila || '').trim())?.has(iso) ?? false;
   }
 
   /** Construye el calendario y deja las filas AUTO-ONLY al final (antes de "— Sin asignar"). */
@@ -161,13 +202,13 @@ export class DescansosY2Component implements OnInit {
     const rowFlags = new Map<string, { hasAuto: boolean; hasNonAuto: boolean }>();
     for (const d of this.descansos) {
       const rowKey = d.reemplazo && d.reemplazo.trim() !== '—' ? d.reemplazo.trim() : SIN;
-      const auto = (d.modalidad || '').toUpperCase() === 'AUTOREEMPLAZO';
+      const auto = (d.modalidad || '').toUpperCase().includes('AUTO'); // AUTOREEMPLAZO / AUTO_Y2
       const rec = rowFlags.get(rowKey) || { hasAuto: false, hasNonAuto: false };
       if (auto) rec.hasAuto = true; else rec.hasNonAuto = true;
       rowFlags.set(rowKey, rec);
     }
 
-    // 1) Presembrar filas desde "reemplazos" (si viene) con su flag isAutoOnly
+    // 1) Presembrar filas desde "reemplazos" con su flag isAutoOnly
     for (const r of this.reemplazos) {
       const key = (r.reemplazo?.trim() || SIN);
       if (!rowsMap.has(key)) {
@@ -193,7 +234,7 @@ export class DescansosY2Component implements OnInit {
       const puesto = d.puesto || 'SIN PUESTO';
       const maquina = d.maquina || 'SIN MAQUINA';
       const turno = d.turno || 'SIN TURNO';
-      const franja = d.franja || '';           // '6-10', '10-14', 'DIA_COMPLETO', etc.
+      const franja = d.franja || '';
       const horas = d.horas || 0;
 
       const gkey = `${(puesto || '').toUpperCase()}|${(maquina || '').toUpperCase()}|${(turno || '').toUpperCase()}|${(franja || '').toUpperCase()}|${horas}`;
@@ -205,11 +246,11 @@ export class DescansosY2Component implements OnInit {
       if (d.colaborador) group.colaboradores.push(d.colaborador);
     }
 
-    // 3) Ordenar grupos (puesto, máquina, turno, franja, horas)
+    // 3) Ordenar grupos
     const rankFranja = (f: string) => {
-      const order = ['6-10', '10-14', '14-18', '18-22', 'DIA_COMPLETO'];
+      const order = ['6-10', '10-14', '14-18', '18-22', 'DIA_COMPLETO', 'PARCIAL_2H'];
       const idx = order.indexOf((f || '').toUpperCase());
-      return idx === -1 ? 99 : idx; // lo no reconocido al final
+      return idx === -1 ? 99 : idx;
     };
 
     for (const row of rowsMap.values()) {
@@ -226,10 +267,7 @@ export class DescansosY2Component implements OnInit {
       }
     }
 
-    // 4) Salida ordenada:
-    //    0) Reemplazos reales
-    //    1) AUTO-ONLY
-    //    2) "— Sin asignar"
+    // 4) Salida ordenada: 0) Reemplazos reales 1) AUTO-ONLY 2) "— Sin asignar"
     const rowRank = (row: CalendarRow) => {
       if (row.reemplazo === SIN) return 2;
       return row.isAutoOnly ? 1 : 0;
@@ -240,12 +278,12 @@ export class DescansosY2Component implements OnInit {
     );
   }
 
-  // Agrupar visualmente por turno (las dos franjas van juntas en orden)
+  // Agrupar visualmente por turno
   turnoBuckets(cell: CalendarCell | undefined): { turno: string; items: CellGroup[] }[] {
     if (!cell) return [];
     const map = new Map<string, CellGroup[]>();
     const rankFranja = (f: string) => {
-      const order = ['6-10', '10-14', '14-18', '18-22', 'DIA_COMPLETO'];
+      const order = ['6-10', '10-14', '14-18', '18-22', 'DIA_COMPLETO', 'PARCIAL_2H'];
       const idx = order.indexOf((f || '').toUpperCase());
       return idx === -1 ? 99 : idx;
     };
@@ -291,8 +329,8 @@ export class DescansosY2Component implements OnInit {
   }
 
   async generar() {
-    if (!this.auth.hasRole('ADMIN', 'SUPERVISOR')) { this.snack.open('No autorizado (solo ADMIN).', 'OK', { duration: 2500 }); return; }
-    const ok = await this.abrirConfirm('¿Generar reducciones Y2 para la semana seleccionada?');
+    if (!this.auth.hasRole('ADMIN', 'SUPERVISOR')) { this.snack.open('No autorizado (solo SUPERVISOR/ADMIN).', 'OK', { duration: 2500 }); return; }
+    const ok = await this.abrirConfirm('¿Generar reducciones Y2 para la semana seleccionada (modo completo)?');
     if (!ok) return;
 
     this.fullscreenLoading = true;
@@ -303,7 +341,7 @@ export class DescansosY2Component implements OnInit {
   }
 
   async eliminar() {
-    if (!this.auth.hasRole('SUPERVISOR', 'ADMIN')) { this.snack.open('No autorizado (solo ADMIN).', 'OK', { duration: 2500 }); return; }
+    if (!this.auth.hasRole('SUPERVISOR', 'ADMIN')) { this.snack.open('No autorizado (solo SUPERVISOR/ADMIN).', 'OK', { duration: 2500 }); return; }
     const ok = await this.abrirConfirm('⚠️ Esto eliminará la semana completa de reducciones Y2. ¿Continuar?');
     if (!ok) return;
 
@@ -313,6 +351,43 @@ export class DescansosY2Component implements OnInit {
       error: err => this.snack.open('Error al eliminar: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 })
     }).add(() => this.fullscreenLoading = false);
   }
+
+  // ===== Generación por partes =====
+  private modoLabel(m: Y2GenModo): string {
+    switch (m) {
+      case 'NOCHE': return 'los que vienen de NOCHE (8h)';
+      case 'MANANA': return 'turno MAÑANA';
+      case 'TARDE': return 'turno TARDE';
+      case 'TURNO_FIJO': return 'turno FIJO (2h + 2h)';
+      case 'GRUPO_Y2': return 'grupo Y2';
+      case 'GRUPO_Y1': return 'grupo Y1';
+    }
+  }
+
+  async run(modo: Y2GenModo) {
+    if (!this.auth.hasRole('SUPERVISOR', 'ADMIN')) {
+      this.snack.open('No autorizado (solo SUPERVISOR/ADMIN).', 'OK', { duration: 2500 });
+      return;
+    }
+
+    const label = this.modoLabel(modo);
+    const ok = await this.abrirConfirm(`¿Generar reducciones SOLO para ${label} en la semana visible (domingo base ${this.domingoActual})?`);
+    if (!ok) return;
+
+    this.genLoading[modo] = true;
+    this.svc.generarPorModo(modo, this.domingoActual).subscribe({
+      next: () => {
+        this.snack.open(`✅ Generación parcial completada: ${label} (base ${this.domingoActual}).`, 'OK', { duration: 2500 });
+        // ya estás en esa semana, solo recarga
+        this.cargar(this.domingoActual);
+      },
+      error: err => {
+        const msg = err?.error || err?.message || 'desconocido';
+        this.snack.open(`Error al generar (${label}): ${msg}`, 'OK', { duration: 4000 });
+      }
+    }).add(() => this.genLoading[modo] = false);
+  }
+
 
   // ===== Filtros / trackBy =====
   filteredRows(): CalendarRow[] {
@@ -338,11 +413,60 @@ export class DescansosY2Component implements OnInit {
       titulo: 'Reducciones',
       subtitulo: this.subtitle,
       cols: this.calendarCols,
-      rows: rows,              // [{reemplazo, cells{iso:{groups:[...]}}}]
+      rows: rows,
       incidencias: this.incidencias,
       filename: `Reducciones_${this.domingoActual}.xlsx`
     });
   }
+
+  // En la clase:
+  dayMap: Record<string, string> = {
+    MONDAY: 'Lun', TUESDAY: 'Mar', WEDNESDAY: 'Mié', THURSDAY: 'Jue', FRIDAY: 'Vie', SATURDAY: 'Sáb'
+  };
+
+  diasPermitidos: Array<{ key: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY', label: string }> = [
+    { key: 'MONDAY', label: 'Lunes' },
+    { key: 'TUESDAY', label: 'Martes' },
+    { key: 'WEDNESDAY', label: 'Miércoles' },
+    { key: 'THURSDAY', label: 'Jueves' },
+    { key: 'FRIDAY', label: 'Viernes' },
+    { key: 'SATURDAY', label: 'Sábado' },
+  ];
+
+  mostrarEditarSeed = false;             // si prefieres un mini diálogo inline
+  seedEditModel: { id?: number; day?: 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY'; forzar?: true } = {};
+
+  abrirEditarSeed(r: any) {
+    if (!this.auth.hasRole('ADMIN', 'SUPERVISOR')) {
+      this.snack.open('No autorizado (solo SUPERVISOR/ADMIN).', 'OK', { duration: 2500 });
+      return;
+    }
+    this.mostrarEditarSeed = true;
+    this.seedEditModel = {
+      id: r.colaboradorId,
+      day: (r.y2UltimoDiaDescanso as any) || 'MONDAY',
+      forzar: true, // 👈 siempre forzado
+    };
+  }
+
+  guardarSeed() {
+    const { id, day } = this.seedEditModel;
+    if (!id || !day) { this.snack.open('Selecciona un día válido.', 'OK', { duration: 2500 }); return; }
+
+    // 👇 envía siempre forzar: true
+    this.svc.setRotacionSeed({ colaboradorId: id, ultimoDia: day, forzar: true }).subscribe({
+      next: () => {
+        this.snack.open('✅ Semilla de rotación (forzada) actualizada.', 'OK', { duration: 2200 });
+        this.mostrarEditarSeed = false;
+        this.cargar(this.domingoActual);
+      },
+      error: err => {
+        const msg = err?.error || err?.message || 'desconocido';
+        this.snack.open('Error al guardar seed: ' + msg, 'OK', { duration: 4000 });
+      }
+    });
+  }
+
 
   trackByCol = (_: number, c: CalendarCol) => c.iso;
   trackByRow = (_: number, r: CalendarRow) => r.reemplazo;
