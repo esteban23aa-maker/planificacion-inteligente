@@ -422,3 +422,21 @@ td, th {
     justify-content: flex-end;
     gap: 8px;
   }
+/* ===== Botonera de generación Y2 ===== */
+.pro-toolbar.single {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  justify-items: stretch;
+}
+
+  .pro-toolbar.single button {
+    height: 44px;
+    justify-content: center;
+    font-weight: 600;
+  }
+
+  .pro-toolbar.single mat-icon,
+  .pro-toolbar.single mat-progress-spinner {
+    margin-right: 6px;
+  }
