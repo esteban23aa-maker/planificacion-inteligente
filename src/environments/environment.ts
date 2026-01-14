@@ -1,6 +1,6 @@
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:8081/api',
+  apiUrl: 'https://turnos-service-production.up.railway.app/api',
   auth: {
     login: '/auth/login',
     refresh: '/auth/refresh',
