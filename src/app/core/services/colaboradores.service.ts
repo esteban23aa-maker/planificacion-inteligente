@@ -68,11 +68,15 @@ export class ColaboradoresService {
   }
 
   getTurnosGrupo(): Observable<TurnoGrupoDTO[]> {
-    return this.http.get<TurnoGrupoDTO[]>('/api/turno-grupos');
-
+    return this.http.get<TurnoGrupoDTO[]>(
+      `${environment.apiUrl}/turno-grupos`
+    );
   }
 
   getTurnosGrupoPorGrupo(grupo: string): Observable<{ horario: string }[]> {
-    return this.http.get<{ horario: string }[]>(`/api/turno-grupos/grupo/${grupo}`);
+    return this.http.get<{ horario: string }[]>(
+      `${environment.apiUrl}/turno-grupos/grupo/${grupo}`
+    );
   }
+
 }

@@ -25,63 +25,77 @@
   </div>
 </ui-page-header>
 
-<!-- --- Botonera generación por partes --- -->
-<div class="pro-toolbar card single">
+<!-- --- Botonera generación por partes (HORIZONTAL) --- -->
+<div class="pro-toolbar gen-toolbar-horizontal">
 
   <button mat-stroked-button color="primary"
           [disabled]="genLoading.TURNO_FIJO"
           (click)="run('TURNO_FIJO')">
-    <mat-icon *ngIf="!genLoading.TURNO_FIJO">schedule</mat-icon>
-    <mat-progress-spinner *ngIf="genLoading.TURNO_FIJO" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
-    Generar Turno Fijo
+    <span class="btn-content">
+      <mat-icon *ngIf="!genLoading.TURNO_FIJO">schedule</mat-icon>
+      <mat-progress-spinner *ngIf="genLoading.TURNO_FIJO"
+                            diameter="18" mode="indeterminate"></mat-progress-spinner>
+      <span>Generar Turno Fijo</span>
+    </span>
   </button>
 
   <button mat-stroked-button color="primary"
           [disabled]="genLoading.MANANA"
           (click)="run('MANANA')">
-    <mat-icon *ngIf="!genLoading.MANANA">wb_sunny</mat-icon>
-    <mat-progress-spinner *ngIf="genLoading.MANANA" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
-    Generar Mañana
+    <span class="btn-content">
+      <mat-icon *ngIf="!genLoading.MANANA">wb_sunny</mat-icon>
+      <mat-progress-spinner *ngIf="genLoading.MANANA"
+                            diameter="18" mode="indeterminate"></mat-progress-spinner>
+      <span>Generar Mañana</span>
+    </span>
   </button>
 
-  <div class="right flex items-center gap-2 flex-wrap">
-    <button mat-stroked-button color="primary"
-            [disabled]="genLoading.NOCHE"
-            (click)="run('NOCHE')">
+  <button mat-stroked-button color="primary"
+          [disabled]="genLoading.NOCHE"
+          (click)="run('NOCHE')">
+    <span class="btn-content">
       <mat-icon *ngIf="!genLoading.NOCHE">nights_stay</mat-icon>
-      <mat-progress-spinner *ngIf="genLoading.NOCHE" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
-      Generar Noche
-    </button>
+      <mat-progress-spinner *ngIf="genLoading.NOCHE"
+                            diameter="18" mode="indeterminate"></mat-progress-spinner>
+      <span>Generar Noche</span>
+    </span>
+  </button>
 
-
-
-    <button mat-stroked-button color="primary"
-            [disabled]="genLoading.TARDE"
-            (click)="run('TARDE')">
+  <button mat-stroked-button color="primary"
+          [disabled]="genLoading.TARDE"
+          (click)="run('TARDE')">
+    <span class="btn-content">
       <mat-icon *ngIf="!genLoading.TARDE">wb_twilight</mat-icon>
-      <mat-progress-spinner *ngIf="genLoading.TARDE" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
-      Generar Tarde
-    </button>
+      <mat-progress-spinner *ngIf="genLoading.TARDE"
+                            diameter="18" mode="indeterminate"></mat-progress-spinner>
+      <span>Generar Tarde</span>
+    </span>
+  </button>
 
-
-
-    <button mat-stroked-button color="accent"
-            [disabled]="genLoading.GRUPO_Y2"
-            (click)="run('GRUPO_Y2')">
+  <button mat-stroked-button color="accent"
+          [disabled]="genLoading.GRUPO_Y2"
+          (click)="run('GRUPO_Y2')">
+    <span class="btn-content">
       <mat-icon *ngIf="!genLoading.GRUPO_Y2">group</mat-icon>
-      <mat-progress-spinner *ngIf="genLoading.GRUPO_Y2" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
-      Generar Grupo Reduccion
-    </button>
+      <mat-progress-spinner *ngIf="genLoading.GRUPO_Y2"
+                            diameter="18" mode="indeterminate"></mat-progress-spinner>
+      <span>Grupo Reducción</span>
+    </span>
+  </button>
 
-    <button mat-stroked-button color="accent"
-            [disabled]="genLoading.GRUPO_Y1"
-            (click)="run('GRUPO_Y1')">
+  <button mat-stroked-button color="accent"
+          [disabled]="genLoading.GRUPO_Y1"
+          (click)="run('GRUPO_Y1')">
+    <span class="btn-content">
       <mat-icon *ngIf="!genLoading.GRUPO_Y1">person</mat-icon>
-      <mat-progress-spinner *ngIf="genLoading.GRUPO_Y1" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
-      Generar Grupo Compensatorio
-    </button>
-  </div>
+      <mat-progress-spinner *ngIf="genLoading.GRUPO_Y1"
+                            diameter="18" mode="indeterminate"></mat-progress-spinner>
+      <span>Grupo Compensatorio</span>
+    </span>
+  </button>
+
 </div>
+
 
 <!-- Toolbar -->
 <div class="pro-toolbar">

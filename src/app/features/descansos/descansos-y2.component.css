@@ -328,14 +328,10 @@ td, th {
     background-color: #ccffcc !important; /* verde un poco más fuerte en el nombre */
     font-weight: 600;
   }
-/* cuando la toolbar es de un solo bloque */
-.pro-toolbar.single {
-  grid-template-columns: 1fr;
-}
 
-  .pro-toolbar.single .right {
-    justify-content: flex-start; /* o center si prefieres centrados */
-  }
+.pro-toolbar.single .right {
+  justify-content: flex-start; /* o center si prefieres centrados */
+}
 /* Amarillo para turno de mañana */
 .turno-manana > td {
   background-color: #fff7cc !important; /* amarillo suave */
@@ -422,21 +418,47 @@ td, th {
     justify-content: flex-end;
     gap: 8px;
   }
-/* ===== Botonera de generación Y2 ===== */
-.pro-toolbar.single {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+/* ===== Botonera generación Y2 HORIZONTAL ===== */
+.gen-toolbar-horizontal {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   gap: 12px;
-  justify-items: stretch;
+  /* CLAVE: nunca se parten en vertical */
+  flex-wrap: nowrap;
+  /* si no caben, scroll horizontal */
+  overflow-x: auto;
+  padding-bottom: 6px;
 }
 
-  .pro-toolbar.single button {
-    height: 44px;
-    justify-content: center;
+  /* Botones uniformes */
+  .gen-toolbar-horizontal button {
+    height: 46px;
+    min-width: 220px;
+    flex: 0 0 auto; /* no crecer, no encoger */
     font-weight: 600;
+    white-space: nowrap;
   }
 
-  .pro-toolbar.single mat-icon,
-  .pro-toolbar.single mat-progress-spinner {
-    margin-right: 6px;
+  /* Icono + texto + spinner */
+  .gen-toolbar-horizontal .btn-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Spinner estable */
+  .gen-toolbar-horizontal mat-progress-spinner {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  /* Scroll discreto (opcional, pero pro) */
+  .gen-toolbar-horizontal::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .gen-toolbar-horizontal::-webkit-scrollbar-thumb {
+    background: #c7d2fe;
+    border-radius: 6px;
   }
