@@ -28,6 +28,22 @@
 <!-- --- Botonera generación por partes --- -->
 <div class="pro-toolbar card single">
 
+  <button mat-stroked-button color="primary"
+          [disabled]="genLoading.TURNO_FIJO"
+          (click)="run('TURNO_FIJO')">
+    <mat-icon *ngIf="!genLoading.TURNO_FIJO">schedule</mat-icon>
+    <mat-progress-spinner *ngIf="genLoading.TURNO_FIJO" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
+    Generar Turno Fijo
+  </button>
+
+  <button mat-stroked-button color="primary"
+          [disabled]="genLoading.MANANA"
+          (click)="run('MANANA')">
+    <mat-icon *ngIf="!genLoading.MANANA">wb_sunny</mat-icon>
+    <mat-progress-spinner *ngIf="genLoading.MANANA" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
+    Generar Mañana
+  </button>
+
   <div class="right flex items-center gap-2 flex-wrap">
     <button mat-stroked-button color="primary"
             [disabled]="genLoading.NOCHE"
@@ -37,13 +53,7 @@
       Generar Noche
     </button>
 
-    <button mat-stroked-button color="primary"
-            [disabled]="genLoading.MANANA"
-            (click)="run('MANANA')">
-      <mat-icon *ngIf="!genLoading.MANANA">wb_sunny</mat-icon>
-      <mat-progress-spinner *ngIf="genLoading.MANANA" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
-      Generar Mañana
-    </button>
+
 
     <button mat-stroked-button color="primary"
             [disabled]="genLoading.TARDE"
@@ -53,13 +63,7 @@
       Generar Tarde
     </button>
 
-    <button mat-stroked-button color="primary"
-            [disabled]="genLoading.TURNO_FIJO"
-            (click)="run('TURNO_FIJO')">
-      <mat-icon *ngIf="!genLoading.TURNO_FIJO">schedule</mat-icon>
-      <mat-progress-spinner *ngIf="genLoading.TURNO_FIJO" [diameter]="18" mode="indeterminate"></mat-progress-spinner>
-      Generar Turno Fijo
-    </button>
+
 
     <button mat-stroked-button color="accent"
             [disabled]="genLoading.GRUPO_Y2"
