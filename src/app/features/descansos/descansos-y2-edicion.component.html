@@ -19,7 +19,6 @@
   <!-- ===== CALENDARIO con Drag&Drop + Menú contextual ===== -->
   <div class="table-shell card" *ngIf="!loading">
     <div class="table-scroll" #tableScroll>
-      <!-- Agrupa todas las listas para DnD -->
       <div cdkDropListGroup>
         <table class="table table-bordered align-middle text-center">
           <thead class="table-head">
@@ -66,9 +65,9 @@
                            [cdkDropListConnectedTo]="connectedLists"
                            [cdkDropListEnterPredicate]="allowEnter"
                            [cdkDropListSortingDisabled]="true"
-                           (cdkDropListDropped)="onDropToSlot(col.iso, g.turno, g.franja, $event)">
+                           (cdkDropListDropped)="onDropToSlot(row, col.iso, g.turno, g.franja, $event)">
                         <button mat-stroked-button class="slot-btn"
-                                (click)="onClickEmptySlot(col.iso, g.turno, g.franja)"
+                                (click)="onClickEmptySlot(row, col.iso, g.turno, g.franja)"
                                 matTooltip="Crear (o mover seleccionado) aquí">
                           <mat-icon>add</mat-icon> {{ selectedId ? 'Mover' : 'Crear' }}
                         </button>
@@ -579,38 +578,6 @@
       <button mat-button mat-dialog-close>Cancelar</button>
       <button mat-flat-button color="primary" [disabled]="fActualizar.invalid || working" [mat-dialog-close]="'guardar'">
         Guardar
-      </button>
-    </mat-dialog-actions>
-  </ng-template>
-
-  <!-- ===== DIALOG: SWAP ===== -->
-  <ng-template #swapDialog>
-    <h2 mat-dialog-title>Intercambiar descansos</h2>
-    <mat-dialog-content class="dialog-content">
-      <div class="swap-grid">
-        <div class="swap-col">
-          <div class="swap-title">A (origen)</div>
-          <div class="swap-item" *ngIf="swapA; else aEmptyDlg">
-            {{ swapA.fechaReduccion }} · <strong>{{ swapA.colaborador }}</strong> · {{ swapA.franja || 'DIA_COMPLETO' }}
-          </div>
-          <ng-template #aEmptyDlg><div class="sd-empty">Selecciona A</div></ng-template>
-        </div>
-        <div class="swap-col">
-          <div class="swap-title">B (destino)</div>
-          <div class="swap-item" *ngIf="swapB; else bEmptyDlg">
-            {{ swapB.fechaReduccion }} · <strong>{{ swapB.colaborador }}</strong> · {{ swapB.franja || 'DIA_COMPLETO' }}
-          </div>
-          <ng-template #bEmptyDlg><div class="sd-empty">Selecciona B</div></ng-template>
-        </div>
-      </div>
-      <div style="margin-top:10px;">
-        <mat-slide-toggle [(ngModel)]="forzarSwap">Forzar</mat-slide-toggle>
-      </div>
-    </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close>Cancelar</button>
-      <button mat-flat-button color="primary" [disabled]="!swapA || !swapB || working" [mat-dialog-close]="'swap'">
-        Intercambiar
       </button>
     </mat-dialog-actions>
   </ng-template>

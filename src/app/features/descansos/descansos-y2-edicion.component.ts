@@ -45,7 +45,7 @@ import { DescansoY2 } from 'src/app/core/models/descanso-y2.model';
 
 type ISO = string;
 
-interface CalendarCol { label: string; iso: ISO; } // L..S
+interface CalendarCol { label: string; iso: ISO; }
 interface CellGroup {
   key: string;
   puesto: string;
@@ -59,8 +59,13 @@ interface CellGroup {
 }
 interface CalendarCell { groups: CellGroup[]; }
 
-/** ✅ Extiende fila con flag AUTO-ONLY */
-interface CalendarRow { reemplazo: string; cells: Record<ISO, CalendarCell>; isAutoOnly?: boolean; }
+/** ✅ Fila con identidad del reemplazo (dueño del slot) */
+interface CalendarRow {
+  reemplazo: string;
+  reemplazoId?: number | null;
+  cells: Record<ISO, CalendarCell>;
+  isAutoOnly?: boolean;
+}
 
 @Component({
   selector: 'app-descansos-y2-edicion',
@@ -103,7 +108,6 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
   // Conectar todos los drop-lists
   @ViewChildren(CdkDropList) private dropLists!: QueryList<CdkDropList>;
   connectedLists: CdkDropList[] = [];
-  // Nota: puedes tiparla como (drag: CdkDrag<any>, drop: CdkDropList) => boolean si usas strict
   allowEnter = () => true;
 
   // ===== Estado existente =====
@@ -216,9 +220,7 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
   }
 
   private setupDnDConnections(): void {
-    // Conecta TODOS los cdkDropList para permitir drop cruzado entre celdas
     this.connectedLists = this.dropLists?.toArray() ?? [];
-    // Forzamos CD al asignar para que no quede template en estado viejo
     this.cdr.detectChanges();
   }
 
@@ -241,7 +243,6 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
     if (v === 'TAR') return '14:00-22:00';
     return v || 'SIN TURNO';
   }
-  /** Día de semana a español para backlog */
   diaSemanaES(d?: string | null): string {
     const m: Record<string, string> = {
       MONDAY: 'Lunes', TUESDAY: 'Martes', WEDNESDAY: 'Miércoles',
@@ -279,7 +280,6 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
           this.pendingScrollIso = null;
         }
 
-        // IMPORTANTE: refrescar candidatos Y2 tras la carga
         this.recalcDisponiblesCrear();
 
         this.loading = false;
@@ -305,13 +305,13 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
     });
   }
 
-  /** ✅ buildCalendar con filas AUTO-ONLY y orden */
+  /** ✅ buildCalendar: fila con reemplazoId + flag AUTO-ONLY + placeholders inteligentes */
   private buildCalendar() {
     const colKeys = new Set(this.calendarCols.map(c => c.iso));
     const rowsMap = new Map<string, CalendarRow>();
     const SIN = '— Sin asignar';
 
-    // 1) Detectar por fila si es AUTO-ONLY (sólo autoremplazos) o tiene reemplazos reales
+    // 1) Flags por fila
     const rowFlags = new Map<string, { hasAuto: boolean; hasNonAuto: boolean }>();
     for (const d of this.descansosSemana) {
       const rowKey = d.reemplazo && d.reemplazo.trim() !== '—' ? d.reemplazo.trim() : SIN;
@@ -321,15 +321,26 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
       rowFlags.set(rowKey, rec);
     }
 
-    // 2) Inicializar filas con flag isAutoOnly
+    // 2) Inicializar filas
     for (const d of this.descansosSemana) {
       const rowKey = d.reemplazo && d.reemplazo.trim() !== '—' ? d.reemplazo.trim() : SIN;
       if (!rowsMap.has(rowKey)) {
         const flags = rowFlags.get(rowKey) || { hasAuto: false, hasNonAuto: false };
-        rowsMap.set(rowKey, { reemplazo: rowKey, cells: {}, isAutoOnly: flags.hasAuto && !flags.hasNonAuto });
+        rowsMap.set(rowKey, {
+          reemplazo: rowKey,
+          reemplazoId: null,
+          cells: {},
+          isAutoOnly: flags.hasAuto && !flags.hasNonAuto
+        });
+      }
+      // ✅ Capturar reemplazoId si viene en el DTO
+      const maybeRepId = (d as any).reemplazoId as number | undefined;
+      const row = rowsMap.get(rowKey)!;
+      if (rowKey !== SIN && maybeRepId && !row.reemplazoId) {
+        row.reemplazoId = maybeRepId;
       }
     }
-    if (!rowsMap.size) rowsMap.set(SIN, { reemplazo: SIN, cells: {}, isAutoOnly: false });
+    if (!rowsMap.size) rowsMap.set(SIN, { reemplazo: SIN, reemplazoId: null, cells: {}, isAutoOnly: false });
 
     // 3) Agrupar por celda y franja
     for (const d of this.descansosSemana) {
@@ -359,11 +370,11 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
       group.ids.push(d.id!);
     }
 
-    // 4) Insertar placeholders (sólo si NO es auto-only)
+    // 4) Placeholders (no para AUTO-ONLY)
     for (const row of rowsMap.values()) {
       for (const col of this.calendarCols) {
         if (!row.cells[col.iso]) row.cells[col.iso] = { groups: [] };
-        this.ensureSmartEmptySlots(row.cells[col.iso], !row.isAutoOnly); // ← clave
+        this.ensureSmartEmptySlots(row.cells[col.iso], !row.isAutoOnly);
       }
 
       for (const iso of Object.keys(row.cells)) {
@@ -386,7 +397,7 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
       }
     }
 
-    // 5) Orden de filas: 0) reales, 1) AUTO-ONLY, 2) "— Sin asignar"
+    // 5) Orden de filas
     const rowRank = (row: CalendarRow) => {
       if (row.reemplazo === '— Sin asignar') return 2;
       return row.isAutoOnly ? 1 : 0;
@@ -399,7 +410,7 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
 
   /** ✅ placeholders desactivables para filas AUTO-ONLY */
   private ensureSmartEmptySlots(cell: CalendarCell, allowPlaceholders: boolean) {
-    if (!allowPlaceholders) return; // si es AUTO-ONLY, no generamos slots
+    if (!allowPlaceholders) return;
     const ocupadas = cell.groups.filter(g => !g.empty);
     const hayDiaCompleto = ocupadas.some(
       g => (g.franja?.toUpperCase() === 'DIA_COMPLETO') || (g.horas ?? 0) >= 8
@@ -420,7 +431,7 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
 
     const turnosConAlgo = new Set(ocupadas.map(g => g.turno).filter(Boolean) as string[]);
     for (const turno of turnosConAlgo) {
-      for (const franja of this.FRANJAS[turno] || []) {
+      for (const franja of (this.FRANJAS as any)[turno] || []) {
         const yaHayEsaFranja = cell.groups.some(g => !g.empty && g.turno === turno && g.franja === franja);
         const yaExistePlaceholder = cell.groups.some(g => g.empty && g.turno === turno && g.franja === franja);
         if (!yaHayEsaFranja && !yaExistePlaceholder) {
@@ -463,18 +474,19 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
     this.selectById(id);
   }
 
-  // Click en slot vacío: si hay selección → modal mover; si no → modal crear
-  onClickEmptySlot(iso: ISO, _turno: string, franja: string) {
+  /** ✅ Click en slot vacío → usar reemplazoId de la fila destino */
+  onClickEmptySlot(row: CalendarRow, iso: ISO, _turno: string, franja: string) {
     if (this.selectedId) {
-      this.openMoveModalToTarget(iso, franja);
+      this.openMoveModalToTarget(row, iso, franja);
       return;
     }
+    const repId = row.reemplazo !== '— Sin asignar' ? (row.reemplazoId ?? null) : null;
     this.fCrear.patchValue({
       colaboradorId: null,
       fecha: this.parseIso(iso),
       horas: 4,
       franja,
-      reemplazoId: null,
+      reemplazoId: repId,
       acumuladasPrevias: true,
       forzar: false
     }, { emitEvent: true });
@@ -485,18 +497,18 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
   onDragStart(e: CdkDragStart<number>) { this.draggingId = e.source.data ?? null; this.snack.dismiss(); }
   onDragEnd(_: CdkDragEnd<number>) { this.draggingId = null; }
 
-  // Drop en slot vacío => modal mover
-  onDropToSlot(iso: ISO, _turno: string, franja: string, ev: CdkDragDrop<any>) {
+  /** ✅ Drop en slot vacío: abrir modal mover con reemplazoId de la fila */
+  onDropToSlot(row: CalendarRow, iso: ISO, _turno: string, franja: string, ev: CdkDragDrop<any>) {
     const srcId = (ev?.item?.data ?? this.draggingId ?? this.selectedId) as number | null;
     if (!srcId) return;
     const d = this.descansosSemana.find(x => x.id === srcId);
     if (!d) return;
     this.selected = d;
     this.selectedId = srcId;
-    this.openMoveModalToTarget(iso, franja);
+    this.openMoveModalToTarget(row, iso, franja);
   }
 
-  // Drop sobre ocupado => modal swap
+  // Drop sobre ocupado => modal swap (conservado)
   onDropOnOccupied(targetId: number, ev: CdkDragDrop<any>) {
     const srcId = (ev?.item?.data ?? this.draggingId ?? this.selectedId) as number | null;
     if (!srcId || srcId === targetId) return;
@@ -507,24 +519,29 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
     this.openSwapModal();
   }
 
-  private openMoveModalToTarget(iso: ISO, franja: string) {
+  /** ✅ Mover a destino con reemplazoId de la fila */
+  private openMoveModalToTarget(row: CalendarRow, iso: ISO, franja: string) {
     if (!this.selected) return;
     const horasSel = (this.selected.horas ?? (this.selected.franja === 'DIA_COMPLETO' ? 8 : 4)) || 4;
+    const repId = row.reemplazo !== '— Sin asignar' ? (row.reemplazoId ?? null) : null;
+
     this.fActualizar.patchValue({
       id: this.selected.id!,
       nuevaFecha: this.parseIso(iso),
       horas: horasSel,
       franja: horasSel === 8 ? 'DIA_COMPLETO' : (franja || null),
-      reemplazoId: null,
+      reemplazoId: repId,
       forzar: false
     }, { emitEvent: false });
     this.openEditarModal();
   }
 
-  private moveSelectedToSlot(iso: ISO, _turno: string, franja: string) {
+  /** ✅ Acción programática de mover con reemplazoId de la fila */
+  private moveSelectedToSlot(row: CalendarRow, iso: ISO, _turno: string, franja: string) {
     if (!this.selectedId) return;
     const selectedHoras =
       (this.selected?.horas ?? (this.selected?.franja === 'DIA_COMPLETO' ? 8 : 4)) || 4;
+    const repId = row.reemplazo !== '— Sin asignar' ? (row.reemplazoId ?? null) : null;
 
     this.working = true;
     const req = {
@@ -532,7 +549,7 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
       nuevaFecha: iso,
       horas: selectedHoras,
       franja: selectedHoras === 8 ? 'DIA_COMPLETO' : franja,
-      reemplazoId: null,
+      reemplazoId: repId,
       forzar: this.fActualizar.value.forzar ?? false
     };
 
@@ -758,7 +775,8 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
   cancelSwapA() { this.swapA = null; }
   cancelSwapB() { this.swapB = null; }
 
-  moveSelectedToA() {
+  /** ✅ Reutiliza moveSelectedToSlot con la fila de B si quisieras extender a “mover a fila de B” */
+  moveSelectedToA(row?: CalendarRow) {
     if (!this.selected || !this.selectedId || !this.swapA) {
       this.snack.open('Selecciona un registro y marca A (Elegido).', 'OK', { duration: 2000 });
       return;
@@ -768,7 +786,9 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
       ? this.canonTurno(this.swapA.turno)
       : this.canonTurnoFromFranja(this.swapA.franja);
     const franja = (this.swapA.horas ?? 0) === 8 ? 'DIA_COMPLETO' : (this.swapA.franja || '06:00-10:00');
-    this.moveSelectedToSlot(iso, turno, franja);
+
+    // Si te interesa mover “a la fila de A”, pásale row (no obligatorio aquí)
+    this.moveSelectedToSlot(row || { reemplazo: '— Sin asignar', reemplazoId: null, cells: {} }, iso, turno, franja);
   }
 
   editFromMenuModal(): void {
@@ -825,13 +845,12 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
       `• Demás semanas: backlog quedará en 0h\n\n` +
       `¿Continuar para la semana base ${d}?`
     );
-if (!ok) return;
+    if (!ok) return;
 
     this.working = true;
     this.crud.resetDerechos(d).subscribe({
       next: (res: any) => {
         const base = res?.domingoBase || this.domingo;
-        // Compatibilidad si algún día cambiaste la clave en backend
         const afectados = res?.colaboradoresAfectados ?? res?.afectados ?? 0;
 
         const msg = `Reset OK. Colaboradores ajustados: ${afectados}. Semana base: ${base}`;
