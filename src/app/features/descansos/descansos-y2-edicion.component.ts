@@ -305,13 +305,31 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
     });
   }
 
-  /** ✅ buildCalendar: fila con reemplazoId + flag AUTO-ONLY + placeholders inteligentes */
+  /** Devuelve un map nombre→id para TODOS los que pueden ser dueños de fila (Y2 y Y1). */
+private reemplazoNameIdMap(): Map<string, number> {
+  const norm = (s: string) => (s || '').trim().toLowerCase();
+  const m = new Map<string, number>();
+  for (const b of this.backlog) {
+    const g = (b.grupo || '').toUpperCase();
+    const esY2 = g.includes('Y2');
+    const esY1 = g.includes('Y1');
+    if (esY2 || esY1) {
+      m.set(norm(b.nombre), b.colaboradorId);
+    }
+  }
+  return m;
+}
+
+
+  /** ✅ buildCalendar: garantiza filas para TODOS los Y2 y completa reemplazoId por nombre */
   private buildCalendar() {
     const colKeys = new Set(this.calendarCols.map(c => c.iso));
     const rowsMap = new Map<string, CalendarRow>();
     const SIN = '— Sin asignar';
+    const repByName = this.reemplazoNameIdMap();           // ← mapa nombre→id para Y2/Y1
+    const norm = (s: string) => (s || '').trim().toLowerCase();
 
-    // 1) Flags por fila
+    // 1) Flags por fila (solo de lo que viene en la semana)
     const rowFlags = new Map<string, { hasAuto: boolean; hasNonAuto: boolean }>();
     for (const d of this.descansosSemana) {
       const rowKey = d.reemplazo && d.reemplazo.trim() !== '—' ? d.reemplazo.trim() : SIN;
@@ -321,36 +339,50 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
       rowFlags.set(rowKey, rec);
     }
 
-    // 2) Inicializar filas
+    // 2) Inicializar filas existentes por data de la semana
     for (const d of this.descansosSemana) {
       const rowKey = d.reemplazo && d.reemplazo.trim() !== '—' ? d.reemplazo.trim() : SIN;
       if (!rowsMap.has(rowKey)) {
         const flags = rowFlags.get(rowKey) || { hasAuto: false, hasNonAuto: false };
-        rowsMap.set(rowKey, {
-          reemplazo: rowKey,
-          reemplazoId: null,
-          cells: {},
-          isAutoOnly: flags.hasAuto && !flags.hasNonAuto
-        });
+        rowsMap.set(rowKey, { reemplazo: rowKey, reemplazoId: null, cells: {}, isAutoOnly: flags.hasAuto && !flags.hasNonAuto });
       }
-      // ✅ Capturar reemplazoId si viene en el DTO
+      // Capturar reemplazoId si viene en DTO
       const maybeRepId = (d as any).reemplazoId as number | undefined;
       const row = rowsMap.get(rowKey)!;
-      if (rowKey !== SIN && maybeRepId && !row.reemplazoId) {
-        row.reemplazoId = maybeRepId;
+      if (rowKey !== SIN) {
+        if (maybeRepId && !row.reemplazoId) row.reemplazoId = maybeRepId;
+        // 🚑 fallback por nombre si aún está vacío (ahora soporta Y1 y Y2)
+      if (!row.reemplazoId) {
+        const idByName = repByName.get(norm(rowKey));
+        if (idByName) row.reemplazoId = idByName;
+      }
+
       }
     }
     if (!rowsMap.size) rowsMap.set(SIN, { reemplazo: SIN, reemplazoId: null, cells: {}, isAutoOnly: false });
 
-    // 3) Agrupar por celda y franja
+    // 3) **Añadir filas para TODOS los Y2** aunque no tengan registros en la semana
+    for (const b of this.backlog) {
+      if (!(b.grupo || '').toUpperCase().includes('Y2')) continue;
+      const key = b.nombre?.trim() || '';
+      if (!key) continue;
+      if (!rowsMap.has(key)) {
+        rowsMap.set(key, { reemplazo: key, reemplazoId: b.colaboradorId, cells: {}, isAutoOnly: false });
+      } else {
+        // Si existe pero sin reemplazoId, complétalo
+        const row = rowsMap.get(key)!;
+        if (!row.reemplazoId) row.reemplazoId = b.colaboradorId;
+      }
+    }
+
+    // 4) Agrupar celdas
     for (const d of this.descansosSemana) {
-      const iso = d.fechaReduccion;
-      if (!colKeys.has(iso!)) continue;
+      const iso = d.fechaReduccion!;
+      if (!colKeys.has(iso)) continue;
 
       const rowKey = d.reemplazo && d.reemplazo.trim() !== '—' ? d.reemplazo.trim() : SIN;
       const row = rowsMap.get(rowKey)!;
-
-      if (!row.cells[iso!]) row.cells[iso!] = { groups: [] };
+      if (!row.cells[iso]) row.cells[iso] = { groups: [] };
 
       const puesto = d.puesto || '—';
       const maquina = d.maquina || '—';
@@ -361,22 +393,18 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
       if (turnoCanon === 'SIN') turnoCanon = this.canonTurnoFromFranja(franja);
 
       const gkey = `${puesto}|${maquina}|${turnoCanon}|${franja}|${horas}`;
-      let group = row.cells[iso!].groups.find(g => g.key === gkey);
-      if (!group) {
-        group = { key: gkey, puesto, maquina, turno: turnoCanon, franja, horas, nombres: [], ids: [] };
-        row.cells[iso!].groups.push(group);
-      }
+      let group = row.cells[iso].groups.find(g => g.key === gkey);
+      if (!group) group = row.cells[iso].groups[row.cells[iso].groups.push({ key: gkey, puesto, maquina, turno: turnoCanon, franja, horas, nombres: [], ids: [] }) - 1];
       group.nombres.push(d.colaborador!);
       group.ids.push(d.id!);
     }
 
-    // 4) Placeholders (no para AUTO-ONLY)
+    // 5) Placeholders + orden
     for (const row of rowsMap.values()) {
       for (const col of this.calendarCols) {
         if (!row.cells[col.iso]) row.cells[col.iso] = { groups: [] };
         this.ensureSmartEmptySlots(row.cells[col.iso], !row.isAutoOnly);
       }
-
       for (const iso of Object.keys(row.cells)) {
         const cell = row.cells[iso];
         const rankFranja = (f: string) => {
@@ -385,7 +413,6 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
           return idx === -1 ? 99 : idx;
         };
         const rankTurno = (t: string) => (t === 'MAN' ? 0 : t === 'TAR' ? 1 : 2);
-
         cell.groups.sort((a, b) =>
           rankTurno(a.turno) - rankTurno(b.turno) ||
           (rankFranja(a.franja) - rankFranja(b.franja)) ||
@@ -397,16 +424,11 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
       }
     }
 
-    // 5) Orden de filas
-    const rowRank = (row: CalendarRow) => {
-      if (row.reemplazo === '— Sin asignar') return 2;
-      return row.isAutoOnly ? 1 : 0;
-    };
-
-    this.calendarRows = Array.from(rowsMap.values()).sort((a, b) =>
-      rowRank(a) - rowRank(b) || a.reemplazo.localeCompare(b.reemplazo)
-    );
+    // 6) Orden de filas (no cambies tu criterio)
+    const rowRank = (row: CalendarRow) => (row.reemplazo === '— Sin asignar') ? 2 : (row.isAutoOnly ? 1 : 0);
+    this.calendarRows = Array.from(rowsMap.values()).sort((a, b) => rowRank(a) - rowRank(b) || a.reemplazo.localeCompare(b.reemplazo));
   }
+
 
   /** ✅ placeholders desactivables para filas AUTO-ONLY */
   private ensureSmartEmptySlots(cell: CalendarCell, allowPlaceholders: boolean) {

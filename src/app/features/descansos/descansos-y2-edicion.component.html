@@ -337,6 +337,16 @@
               </mat-select>
             </mat-form-field>
 
+            <mat-form-field appearance="fill" class="ff-flat">
+              <mat-label>Reemplazo (Opcional)</mat-label>
+              <mat-select formControlName="reemplazoId">
+                <mat-option [value]="null">— Mantener / Auto —</mat-option>
+                <mat-option *ngFor="let y of disponiblesCrear" [value]="y.colaboradorId">
+                  {{ y.nombre }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
             <mat-slide-toggle formControlName="forzar">Forzar</mat-slide-toggle>
 
             <div class="buttons">
@@ -581,7 +591,7 @@
       </button>
     </mat-dialog-actions>
   </ng-template>
-
+  
   <div class="footer-actions">
     <div class="footer-left"></div>
     <div class="footer-center">

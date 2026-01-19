@@ -73,30 +73,36 @@
             <tr *ngFor="let row of filteredRows(); trackBy: trackByRow">
               <td class="sticky-col first-col"><strong class="reemplazo-name">{{ row.reemplazo }}</strong></td>
               <td *ngFor="let col of calendarCols; trackBy: trackByCol" [class.today-col]="isToday(col.iso)">
-                <ng-container *ngIf="row.cells[col.iso] as cell; else empty">
-                  <div *ngFor="let g of cell.groups" class="cell-group">
-                    <div class="group-meta">
-                      <span class="chip">{{ g.puesto }}</span>
-                      <span class="dot">•</span>
-                      <span class="chip alt">{{ g.maquina }}</span>
-                      <span class="dot">•</span>
-                      <span class="chip tone">{{ g.turno }}</span>
-                    </div>
+                <div class="cell-inner">
+                  <ng-container *ngIf="row.cells[col.iso] as cell; else empty">
+                    <div *ngFor="let g of cell.groups" class="cell-group">
+                      <div class="group-meta">
+                        <span class="chip">{{ g.puesto }}</span>
+                        <span class="dot">•</span>
+                        <span class="chip alt">{{ g.maquina }}</span>
+                        <span class="dot">•</span>
+                        <span class="chip tone">{{ g.turno }}</span>
+                      </div>
 
-                    <div class="group-people">
-                      <button *ngFor="let c of g.colaboradores"
-                              class="person-btn"
-                              mat-stroked-button
-                              [disabled]="!canEdit"
-                              [class.selected]="isSelected(c, col.iso)"
-                              matTooltip="Seleccionar descanso de {{c}}"
-                              (click)="onClickNombre(c, col.iso); swapMode && addSelectedToSwap()">
-                        {{ c }}
-                      </button>
+                      <div class="group-people">
+                        <button *ngFor="let c of g.colaboradores"
+                                class="person-btn"
+                                mat-stroked-button
+                                [disabled]="!canEdit"
+                                [class.selected]="isSelected(c, col.iso)"
+                                matTooltip="Seleccionar descanso de {{c}}"
+                                (click)="onClickNombre(c, col.iso); swapMode && addSelectedToSwap()">
+                          {{ c }}
+                        </button>
+                      </div>
                     </div>
+                  </ng-container>
+                  <ng-template #empty></ng-template>
+                  <div class="overlay-badge reduccion"
+                       *ngIf="tieneReduccion(row.reemplazo, col.iso)">
+                    Reducción
                   </div>
-                </ng-container>
-                <ng-template #empty>—</ng-template>
+                </div>
               </td>
             </tr>
           </tbody>

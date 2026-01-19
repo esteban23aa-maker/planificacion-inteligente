@@ -16,6 +16,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 // App
 import { DomingoService } from 'src/app/core/services/domingo.service';
@@ -44,7 +45,7 @@ type EditableCol = ColaboradorDomingoDTO & { maquinaId: number | null; puestoId:
     CommonModule, FormsModule, NgSelectModule,
     // Material
     MatButtonModule, MatIconModule, MatSnackBarModule, MatProgressBarModule,
-    MatFormFieldModule, MatInputModule, MatDialogModule, MatButtonToggleModule,
+    MatFormFieldModule, MatInputModule, MatDialogModule, MatButtonToggleModule, MatTooltipModule,
     // UI
     PageHeaderComponent,
   ],
@@ -80,6 +81,7 @@ export class DomingoEdicionComponent implements OnInit {
   filtroTexto = '';
   filtroNombre = '';
   coordinadoresPorTurno: { [turno: string]: string } = {};
+
 
   // Densidad (coincide con otros módulos)
   density: Density = (localStorage.getItem('domingo-ed.density') as Density) || 'comfortable';
@@ -254,49 +256,65 @@ export class DomingoEdicionComponent implements OnInit {
     if (sel) this.nuevoColaborador.nombre = sel.nombre;
   }
 
-  confirmarAgregarColaborador(): void {
-    if (!this.nuevoColaborador.id || !this.nuevoColaborador.turno) {
-      this.snack.open('Completa nombre y turno.', 'OK', { duration: 2500 });
-      return;
-    }
-    const maquinaNombre = this.maquinasDisponibles.find(m => m.id === this.nuevoColaborador.maquinaId)?.nombre || '';
-    const puestoNombre = this.puestosDisponibles.find(p => p.id === this.nuevoColaborador.puestoId)?.nombre || '';
+ confirmarAgregarColaborador(): void {
+  if (!this.nuevoColaborador.id || !this.nuevoColaborador.turno) {
+    this.snack.open('Completa nombre y turno.', 'OK', { duration: 2500 });
+    return;
+  }
 
-    if (this.colaboradorEditandoIndex !== null) {
-      this.colaboradores[this.colaboradorEditandoIndex] = {
-        id: this.nuevoColaborador.id!,
-        nombre: this.nuevoColaborador.nombre!,
-        turno: this.nuevoColaborador.turno!,
-        maquina: maquinaNombre,
-        puesto: puestoNombre,
-        maquinaId: this.nuevoColaborador.maquinaId ?? null,
-        puestoId: this.nuevoColaborador.puestoId ?? null,
+  const maquinaNombre =
+  this.maquinasDisponibles.find(m => m.id === this.nuevoColaborador.maquinaId)?.nombre || '';
+
+  const puestoNombre = this.puestosDisponibles.find(p => p.id === this.nuevoColaborador.puestoId)?.nombre || '';
+  const coordPuestoId = this.getCoordinadorPuestoId();
+
+  // ========== CASO ESPECIAL: COORDINADOR ==========
+  if (this.nuevoColaborador.puestoId && coordPuestoId && this.nuevoColaborador.puestoId === coordPuestoId) {
+    const turno = this.nuevoColaborador.turno!;
+    const nuevoId = this.nuevoColaborador.id!;
+    const nuevoNombre = this.nuevoColaborador.nombre || (this.nombresDisponibles.find(n => n.id === nuevoId)?.nombre ?? '');
+
+    // 1) eliminar coordinador previo del mismo turno (unicidad)
+    this.colaboradores = this.colaboradores.filter(c => !(this.esCoordinador(c) && c.turno === turno));
+
+    // 2) si la persona ya existe en la tabla, CONVERTIR su puesto a Coordinador
+    const existenteIndex = this.colaboradores.findIndex(c => c.id === nuevoId);
+    if (existenteIndex >= 0) {
+      this.colaboradores[existenteIndex] = {
+        ...this.colaboradores[existenteIndex],
+        nombre: nuevoNombre,
+        turno: turno,
+        maquina: '',         // coordinador normalmente sin máquina (ajústalo si quieres heredar)
+        puesto: puestoNombre || 'Coordinador',
+        maquinaId: null,
+        puestoId: coordPuestoId,
         tipoAsignacion: 'MANUAL'
       };
-      this.colaboradorEditandoIndex = null;
     } else {
-      if (this.colaboradores.some(c => c.id === this.nuevoColaborador.id)) {
-        this.snack.open('Ese colaborador ya está asignado.', 'OK', { duration: 2500 });
-        return;
-      }
+      // 3) si no existe, agregarlo como Coordinador
       this.colaboradores.push({
-        id: this.nuevoColaborador.id!,
-        nombre: this.nuevoColaborador.nombre!,
-        turno: this.nuevoColaborador.turno!,
-        maquina: maquinaNombre,
-        puesto: puestoNombre,
-        maquinaId: this.nuevoColaborador.maquinaId ?? null,
-        puestoId: this.nuevoColaborador.puestoId ?? null,
+        id: nuevoId,
+        nombre: nuevoNombre,
+        turno: turno,
+        maquina: '',         // coordinador sin máquina
+        puesto: puestoNombre || 'Coordinador',
+        maquinaId: null,
+        puestoId: coordPuestoId,
         tipoAsignacion: 'MANUAL'
       });
     }
 
-    this.editandoNuevo = false;
+    // 4) refrescar cabecera de coordinadores
+    this.setCoordinadorNombreCache(turno);
 
-    // Resaltar fila recién agregada/editada
+    // finalizar UI
+    this.editandoNuevo = false;
+    this.colaboradorEditandoIndex = null;
+
+    // resaltado opcional
     setTimeout(() => {
-      const fila = this.filasColaboradores.find(el =>
-        el.nativeElement.textContent.includes(this.nuevoColaborador.nombre || '')
+      const fila = this.filasColaboradores?.find(el =>
+        el.nativeElement.textContent.includes(nuevoNombre)
       );
       if (fila) {
         fila.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -304,7 +322,54 @@ export class DomingoEdicionComponent implements OnInit {
         setTimeout(() => fila.nativeElement.classList.remove('resaltado'), 1500);
       }
     }, 40);
+
+    return; // ← IMPORTANTE: no seguir al flujo estándar
   }
+
+  // ========== FLUJO ESTÁNDAR (tu código original) ==========
+  if (this.colaboradorEditandoIndex !== null) {
+    this.colaboradores[this.colaboradorEditandoIndex] = {
+      id: this.nuevoColaborador.id!,
+      nombre: this.nuevoColaborador.nombre!,
+      turno: this.nuevoColaborador.turno!,
+      maquina: maquinaNombre,
+      puesto: puestoNombre,
+      maquinaId: this.nuevoColaborador.maquinaId ?? null,
+      puestoId: this.nuevoColaborador.puestoId ?? null,
+      tipoAsignacion: this.nuevoColaborador.tipoAsignacion || 'MANUAL'
+    };
+    this.colaboradorEditandoIndex = null;
+  } else {
+    if (this.colaboradores.some(c => c.id === this.nuevoColaborador.id)) {
+      this.snack.open('Ese colaborador ya está asignado.', 'OK', { duration: 2500 });
+      return;
+    }
+    this.colaboradores.push({
+      id: this.nuevoColaborador.id!,
+      nombre: this.nuevoColaborador.nombre!,
+      turno: this.nuevoColaborador.turno!,
+      maquina: maquinaNombre,
+      puesto: puestoNombre,
+      maquinaId: this.nuevoColaborador.maquinaId ?? null,
+      puestoId: this.nuevoColaborador.puestoId ?? null,
+      tipoAsignacion: this.nuevoColaborador.tipoAsignacion || 'MANUAL'
+    });
+  }
+
+  this.editandoNuevo = false;
+
+  setTimeout(() => {
+    const fila = this.filasColaboradores.find(el =>
+      el.nativeElement.textContent.includes(this.nuevoColaborador.nombre || '')
+    );
+    if (fila) {
+      fila.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      fila.nativeElement.classList.add('resaltado');
+      setTimeout(() => fila.nativeElement.classList.remove('resaltado'), 1500);
+    }
+  }, 40);
+}
+
 
   cancelarAgregar(): void {
     this.editandoNuevo = false;
@@ -362,6 +427,78 @@ export class DomingoEdicionComponent implements OnInit {
     });
   }
 
+  // ===== Helpers Coordinador =====
+private getCoordinadorPuestoId(): number | null {
+  const p = this.puestosDisponibles.find(x =>
+    (x.nombre || '').trim().toLowerCase() === 'coordinador'
+  );
+  return p?.id ?? null;
+}
+
+private getCoordinadorEntry(turno: string): EditableCol | undefined {
+  return this.colaboradores.find(c => this.esCoordinador(c) && c.turno === turno);
+}
+
+private setCoordinadorNombreCache(turno: string) {
+  const coord = this.getCoordinadorEntry(turno);
+  if (coord) this.coordinadoresPorTurno[turno] = coord.nombre;
+  else delete this.coordinadoresPorTurno[turno];
+}
+
+editarCoordinador(turno: string): void {
+  const coordPuestoId = this.getCoordinadorPuestoId();
+  if (!coordPuestoId) {
+    this.snack.open('No existe el puesto "Coordinador" en catálogos.', 'OK', { duration: 3500 });
+    return;
+  }
+
+  const actual = this.getCoordinadorEntry(turno);
+  this.editandoNuevo = true;
+  this.colaboradorEditandoIndex = actual
+    ? this.colaboradores.findIndex(c => c.id === actual.id && c.turno === turno && this.esCoordinador(c))
+    : null;
+
+  this.nuevoColaborador = {
+    id: actual?.id,                      // si ya hay, viene preseleccionado
+    nombre: actual?.nombre || '',
+    turno: turno,                        // forzado al turno de cabecera
+    maquinaId: null,                     // coordinador sin máquina por defecto (puedes ajustar)
+    puestoId: coordPuestoId,             // 🔒 forzamos "Coordinador"
+    tipoAsignacion: 'MANUAL'
+  };
+
+  setTimeout(() => {
+    if (this.formularioColaborador) {
+      this.formularioColaborador.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 40);
+}
+
+quitarCoordinador(turno: string): void {
+  const actual = this.getCoordinadorEntry(turno);
+  if (!actual) {
+    this.snack.open(`No hay coordinador en ${turno}.`, 'OK', { duration: 2200 });
+    return;
+  }
+  // remueve esa asignación del array (no toca backend aún; backend se enterará al guardar)
+  this.colaboradores = this.colaboradores.filter(c => !(this.esCoordinador(c) && c.turno === turno));
+  this.setCoordinadorNombreCache(turno);
+  this.snack.open(`Coordinador quitado de ${turno}.`, 'OK', { duration: 1800 });
+}
+
+setSinMaquina(): void {
+  this.nuevoColaborador.maquinaId = null;
+  // opcional: feedback rápido
+  this.snack.open('Máquina desasignada para este colaborador.', 'OK', { duration: 1400 });
+}
+
+onMaquinaChange(_id: number | null): void {
+  // Si el usuario limpió, garantizamos null consistente
+  if (_id == null) this.nuevoColaborador.maquinaId = null;
+}
+
+
+
   async cancelar(): Promise<void> {
     const ok = await this.abrirConfirmacion('¿Cancelar los cambios? Se perderán los datos no guardados.');
     if (ok) this.router.navigate(['/domingo']);
@@ -379,3 +516,6 @@ export class DomingoEdicionComponent implements OnInit {
   trackByTurno = (_: number, t: string) => t;
   trackByCol = (_: number, c: EditableCol) => `${c.id}|${c.turno}`;
 }
+
+
+

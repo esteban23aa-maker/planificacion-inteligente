@@ -266,3 +266,113 @@ td span.badge {
       width: 100%;
     }
 }
+/* === Fix: hacer clickeable la X de ng-select y que no la tape la flecha === */
+.domingo-edicion-page .ng-custom.ng-select {
+  position: relative;
+}
+
+  /* deja espacio interno para X (a la derecha) y la flecha */
+  .domingo-edicion-page .ng-custom.ng-select .ng-select-container {
+    padding-right: 56px; /* 24px X + 24px flecha + margen */
+  }
+
+  /* X posicionada y por encima de todo */
+  .domingo-edicion-page .ng-custom.ng-select .ng-clear-wrapper {
+    position: absolute;
+    right: 34px; /* separado de la flecha */
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 3;
+    pointer-events: auto; /* asegura que reciba el click */
+  }
+
+    .domingo-edicion-page .ng-custom.ng-select .ng-clear-wrapper .ng-clear {
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 50%;
+    }
+
+      .domingo-edicion-page .ng-custom.ng-select .ng-clear-wrapper .ng-clear:hover {
+        background: rgba(0,0,0,.06);
+      }
+
+  /* flecha y input “debajo” de la X para que no la tapen */
+  .domingo-edicion-page .ng-custom.ng-select .ng-arrow-wrapper {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+  }
+
+  .domingo-edicion-page .ng-custom.ng-select .ng-select-container .ng-value-container .ng-input {
+    position: absolute;
+    z-index: 1;
+  }
+
+  /* === ng-select vacío: que no se aplane y muestre un chip-placeholder === */
+
+  /* Altura y bordes coherentes siempre */
+  .domingo-edicion-page .ng-custom.ng-select .ng-select-container {
+    min-height: 44px; /* mismo alto visual que cuando hay chip */
+    border-radius: 10px;
+  }
+
+  /* Estado vacío (sin valor): chip fantasma "Sin máquina" o el placeholder que lleves */
+  .domingo-edicion-page .ng-custom.ng-select.chip-like:not(.ng-has-value)
+  .ng-select-container .ng-value-container::before {
+    content: attr(data-empty-label); /* leerá data-empty-label si lo pones; fall-back abajo */
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    margin: 4px 4px 4px 0;
+    background-color: #f1f5f9; /* slate-100 */
+    border: 1px dashed #cbd5e1; /* slate-300 */
+    border-radius: 999px;
+    color: #64748b; /* slate-500 */
+    font-size: 13px;
+    font-weight: 500;
+    pointer-events: none; /* no bloquea clics */
+  }
+
+  /* Si no le pones data-empty-label, usa el placeholder del control */
+  .domingo-edicion-page .ng-custom.ng-select.chip-like:not(.ng-has-value)
+  .ng-select-container .ng-value-container::before {
+    content: attr(placeholder);
+  }
+
+  /* Hover/focus agradables */
+  .domingo-edicion-page .ng-custom.ng-select .ng-select-container:hover {
+    border-color: #b6d4fe;
+  }
+
+  .domingo-edicion-page .ng-custom.ng-select.ng-select-opened .ng-select-container,
+  .domingo-edicion-page .ng-custom.ng-select.ng-select-focused .ng-select-container {
+    box-shadow: 0 0 0 3px rgba(4, 119, 191, .08);
+    border-color: #84c0fc;
+  }
+
+  /* Acomodar X y flecha como ya lo tenías */
+  .domingo-edicion-page .ng-custom.ng-select .ng-select-container {
+    padding-right: 56px;
+  }
+
+  .domingo-edicion-page .ng-custom.ng-select .ng-clear-wrapper {
+    position: absolute;
+    right: 34px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 3;
+  }
+
+  .domingo-edicion-page .ng-custom.ng-select .ng-arrow-wrapper {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+  }

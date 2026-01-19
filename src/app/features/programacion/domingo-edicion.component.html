@@ -50,15 +50,29 @@
         <!-- Coordinadores -->
         <tr class="coord-row">
           <td class="sticky-col first-col"><strong>COORDINADOR</strong></td>
+
           <td *ngFor="let t of turnosDisponibles; trackBy: trackByTurno">
-            <ng-container *ngIf="coordinadoresPorTurno[t]; else noCoord">
-              <strong class="coord-name">{{ coordinadoresPorTurno[t] }}</strong>
-            </ng-container>
-            <ng-template #noCoord>
-              <span class="text-muted">—</span>
-            </ng-template>
+            <div class="flex items-center justify-center gap-2">
+              <ng-container *ngIf="coordinadoresPorTurno[t]; else noCoord">
+                <strong class="coord-name">{{ coordinadoresPorTurno[t] }}</strong>
+                <button mat-icon-button color="primary" (click)="editarCoordinador(t)" matTooltip="Cambiar coordinador">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button color="warn" (click)="quitarCoordinador(t)" matTooltip="Quitar coordinador">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </ng-container>
+
+              <ng-template #noCoord>
+                <span class="text-muted">—</span>
+                <button mat-stroked-button color="primary" (click)="editarCoordinador(t)">
+                  Asignar
+                </button>
+              </ng-template>
+            </div>
           </td>
         </tr>
+
 
         <!-- Grupos -->
         <tr *ngFor="let grupo of maquinasFiltradas(); trackBy: trackByGrupo">
@@ -118,17 +132,23 @@
       </ng-select>
     </div>
 
+    <!-- Máquina -->
     <div>
       <label class="form-label">Máquina</label>
-      <ng-select class="ng-custom"
+      <ng-select class="ng-custom chip-like"
                  [items]="maquinasDisponibles"
                  bindLabel="nombre"
                  bindValue="id"
                  [(ngModel)]="nuevoColaborador.maquinaId"
                  name="maquinaId"
-                 placeholder="Máquina asignada">
+                 placeholder="Sin máquina"
+                 [clearable]="true"
+                 (clear)="setSinMaquina()"
+                 (change)="onMaquinaChange($event)">
       </ng-select>
     </div>
+
+
 
     <div>
       <label class="form-label">Puesto</label>

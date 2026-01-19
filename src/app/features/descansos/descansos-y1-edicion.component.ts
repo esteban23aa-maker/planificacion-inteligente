@@ -25,6 +25,7 @@ import { PageHeaderComponent } from 'src/app/ui/page-header/page-header.componen
 import { IfRolesDirective } from 'src/app/shared/directives/if-roles.directive';
 import { ConfirmDialogComponent } from 'src/app/features/programacion/dialogs/confirm-dialog.component';
 import { AuthService } from 'src/app/core/services/auth.service';
+import { DescansosY2Service } from 'src/app/core/services/descansos-y2.service';
 
 type ISODate = string;
 
@@ -57,6 +58,8 @@ export class DescansosY1EdicionComponent implements OnInit {
   private dialog = inject(MatDialog);
   private auth = inject(AuthService);
   private router = inject(Router);
+  private y2 = inject(DescansosY2Service);        // + NUEVO
+  private overlayY2Reduc = new Map<string, Set<ISODate>>(); // + NUEVO
 
   trabajadores: TrabajadorDomingo[] = [];
   reemplazos: ReemplazoY1[] = [];
@@ -101,6 +104,20 @@ export class DescansosY1EdicionComponent implements OnInit {
   setDensity(d: Density) { this.density = d; localStorage.setItem('descansos.edicion.density', d); }
 
   volverADomingo(): void { this.router.navigate(['/domingo']); }
+
+  // normalizador reutilizable (igual al de la vista)
+  private norm(s?: string | null): string {
+    return (s || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+      .toUpperCase();
+  }
+
+  // helper para el template
+  tieneReduccion(nombreFila: string, iso: ISODate): boolean {
+    return this.overlayY2Reduc.get(this.norm(nombreFila))?.has(iso) ?? false;
+  }
 
   get subtitle(): string {
     const d0 = this.parseIsoDateLocal(this.domingoActual);
@@ -165,12 +182,27 @@ export class DescansosY1EdicionComponent implements OnInit {
     forkJoin({
       trabajadores: this.svc.getTrabajadores(domingo),
       reemplazos: this.svc.getReemplazos(domingo),
-      descansos: this.svc.getDescansos(domingo)
+      descansos: this.svc.getDescansos(domingo),
+      y2:           this.y2.getDescansos(domingo)
     }).subscribe({
-      next: ({ trabajadores, reemplazos, descansos }) => {
+      next: ({ trabajadores, reemplazos, descansos, y2 }) => {
         this.trabajadores = trabajadores;
         this.reemplazos = reemplazos;
         this.descansos = descansos;
+
+        this.overlayY2Reduc.clear();
+      for (const d of y2 || []) {
+        const modalidad = (d.modalidad || '').toUpperCase();
+        if (modalidad.includes('AUTO')) continue; // los AUTO no ocupan a nadie
+
+        const key = this.norm(d.reemplazo);
+        if (!key || key === '—') continue;
+
+        const iso = d.fechaReduccion;
+        if (!this.overlayY2Reduc.has(key)) this.overlayY2Reduc.set(key, new Set<ISODate>());
+        this.overlayY2Reduc.get(key)!.add(iso);
+      }
+
         this.buildCalendar();
         this.loading = false;
       },
@@ -343,6 +375,11 @@ export class DescansosY1EdicionComponent implements OnInit {
     if (!this.selected) return;
     if (!this.nuevaFechaDate) { this.snack.open('Selecciona una nueva fecha.', 'OK', { duration: 2000 }); return; }
     const nuevaISO = this.toIsoLocal(this.nuevaFechaDate);
+    const rep = this.selected.reemplazo || '—';
+  if (this.tieneReduccion(rep, nuevaISO)) {
+    this.snack.open('⛔ No se puede mover: el reemplazo tiene una Reducción (Y2) ese día.', 'OK', { duration: 3200 });
+    return;
+  }
     this.svc.moverDescanso(this.selected.id, nuevaISO, this.forzar).subscribe({
       next: (incs) => { this.setIncidencias(incs); this.cargarDatos(this.domingoActual); this.resetSelection(); },
       error: (e) => { console.error(e); this.snack.open('⚠️ Error al mover el descanso.', 'OK', { duration: 3000 }); }
@@ -376,15 +413,35 @@ export class DescansosY1EdicionComponent implements OnInit {
     this.swapBucket = this.swapBucket.filter(x => x.id !== d.id);
   }
   canSwap(): boolean { return this.swapBucket.length === 2; }
+
   ejecutarSwap(): void {
     if (!this.canSwap()) return;
     const [a, b] = this.swapBucket;
+
+    // Validar destino de A y destino de B:
+  // A va a la fecha de B, y B va a la fecha de A (mismo reemplazo de cada uno).
+    const repA = a.reemplazo || '—';
+    const repB = b.reemplazo || '—';
+    const destA = b.fechaDescanso;
+    const destB = a.fechaDescanso;
+
+    if (this.tieneReduccion(repA, destA)) {
+      this.snack.open(`⛔ No se puede intercambiar: ${repA} tiene Reducción el ${destA}.`, 'OK', { duration: 3200 });
+      return;
+    }
+    if (this.tieneReduccion(repB, destB)) {
+      this.snack.open(`⛔ No se puede intercambiar: ${repB} tiene Reducción el ${destB}.`, 'OK', { duration: 3200 });
+      return;
+    }
+
     this.fullscreenLoading = true;
     this.svc.intercambiarDescansos(a.id, b.id, this.forzarSwap).subscribe({
       next: (incs) => { this.setIncidencias(incs); this.cargarDatos(this.domingoActual); this.swapBucket = []; this.swapMode = false; },
       error: (e) => { console.error(e); this.snack.open('⚠️ Error al intercambiar descansos.', 'OK', { duration: 3000 }); }
     }).add(() => this.fullscreenLoading = false);
   }
+
+
   limpiarSwap(): void { this.swapBucket = []; }
 
   // ===== Rebalanceo + Incidencias =====
