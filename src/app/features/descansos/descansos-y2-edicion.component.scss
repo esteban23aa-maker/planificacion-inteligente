@@ -628,3 +628,44 @@
 .dialog-content {
   padding-top: 6px;
 }
+
+/* Celda uniforme un poco más alta para que el centro se note (ajústalo si quieres) */
+.table tbody td {
+  position: relative; /* ya lo tenías, lo mantenemos */
+  height: 128px; /* da “calibre” uniforme a la cuadrícula */
+}
+
+/* Contenedor del overlay: ocupa toda la celda y centra su contenido */
+.overlay-badge.compensatorio {
+  position: absolute;
+  inset: 0; /* top/right/bottom/left: 0 */
+  display: flex;
+  align-items: center;
+  justify-content: center; /* ← centrado perfecto */
+  z-index: 2;
+  pointer-events: none; /* no bloquea clicks debajo */
+}
+
+  /* La pastilla */
+  .overlay-badge.compensatorio > span {
+    display: inline-block;
+    font-weight: 700;
+    font-size: 13px; /* un pelín más grande */
+    padding: 6px 12px; /* “calibre” similar a tus chips */
+    border-radius: 999px;
+    background: #ffe891; /* tono más uniforme con tu paleta */
+    color: #4a3b00;
+    border: 1px solid #f7d56e;
+    box-shadow: 0 1px 0 rgba(0,0,0,.04);
+  }
+
+/* Si usas “density” compact/ultra, ajusta un poco el tamaño */
+.y2-edicion-page.density-compact .overlay-badge.compensatorio > span {
+  font-size: 12.5px;
+  padding: 5px 10px;
+}
+
+.y2-edicion-page.density-ultra .overlay-badge.compensatorio > span {
+  font-size: 12px;
+  padding: 4px 9px;
+}

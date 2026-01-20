@@ -176,190 +176,350 @@ export class ExcelExportService {
     await this.download(wb, opts.filename || 'Domingo.xlsx');
   }
 
-  /** Compensatorios Y1 */
-  /** Compensatorios Y1 (cabecera 2 líneas + celdas ricas) */
-  async exportY1(opts: {
-    filename?: string;
-    titulo: string; subtitulo: string;
-    cols: { label: string; iso: string }[];
-    rows: Array<{ reemplazo: string; cells: Record<string, { groups: Array<{ puesto: string; maquina: string; turno: string; colaboradores: string[] }> }> }>;
-  }) {
-    const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet('Compensatorios', { views: [{ state: 'frozen', xSplit: 1, ySplit: 4 }] });
-    this.setupPage(ws);
-    this.addTitle(ws, opts.titulo, opts.subtitulo, THEME.y1);
+ /** Compensatorios Y1 (cabecera 2 líneas + columnas por día desdobladas en: Turno | Compensatorio) */
+async exportY1(opts: {
+  filename?: string;
+  titulo: string; subtitulo: string;
+  cols: { label: string; iso: string }[];
+  rows: Array<{ reemplazo: string; cells: Record<string, { groups: Array<{ puesto: string; maquina: string; turno: string; colaboradores: string[] }> }> }>;
+  /** NUEVO: callback para marcar si un nombre está en "Reducción" ese día */
+  isReduc?: (iso: string, nombre: string) => boolean;
+}) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Compensatorios', { views: [{ state: 'frozen', xSplit: 1, ySplit: 4 }] });
+  this.setupPage(ws);
+  this.addTitle(ws, opts.titulo, opts.subtitulo, THEME.y1);
 
-    // Cabecera “Día / ISO”
-    this.addTwoLineHeader(ws, {
-      top: ['Reemplazo', ...opts.cols.map(c => c.label)],
-      bottom: ['', ...opts.cols.map(c => c.iso)],
-    }, THEME.y1);
+  // Cabecera “desdoblada”: por cada día => 2 columnas (Turno | Compensatorio)
+  const topHdr = ['Reemplazo', ...opts.cols.flatMap(c => [c.label, c.label])];
+  const botHdr = ['', ...opts.cols.flatMap(_ => ['Turno', 'Compensatorio'])];
+  this.addTwoLineHeader(ws, { top: topHdr, bottom: botHdr }, THEME.y1);
 
-    // Filas
-    for (const r of opts.rows) {
-      // fila vacía para poder escribir richText por celda
-      const row = ws.addRow(new Array(1 + opts.cols.length).fill(null));
+  // Filas (una por reemplazo)
+  for (const r of opts.rows) {
+    const row = ws.addRow(new Array(1 + (opts.cols.length * 2)).fill(null));
 
-      // Columna 1: Reemplazo (bonito = negrita)
-      const c1 = row.getCell(1);
-      c1.value = r.reemplazo || '—';
-      c1.font = { bold: true };
-      c1.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+    // Columna 1: Reemplazo en negrita
+    const c1 = row.getCell(1);
+    c1.value = r.reemplazo || '—';
+    c1.font = { bold: true };
+    c1.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
 
-      // Celdas por día (rich)
-      opts.cols.forEach((col, i) => {
-        const cell = row.getCell(2 + i);
-        const cellData = r.cells[col.iso];
-        if (!cellData?.groups?.length) {
-          cell.value = '—';
-          cell.alignment = { wrapText: true, vertical: 'top', horizontal: 'center' };
+    // Celdas por día: [Turno] | [Compensatorio]
+    opts.cols.forEach((col, i) => {
+      const baseCol = 2 + (i * 2);
+      const cellTurno = row.getCell(baseCol + 0);
+      const cellData  = row.getCell(baseCol + 1);
+
+      const data = r.cells[col.iso];
+      const groups = (data?.groups || []).slice();
+
+      if (!groups.length) {
+        // Si el REEMPLAZO de la fila está en Reducción ese día, muéstralo.
+        const reducFila = opts.isReduc ? opts.isReduc(col.iso, r.reemplazo) : false;
+
+        cellTurno.value = '—';
+        cellTurno.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
+
+        if (reducFila) {
+          (cellData as any).value = {
+            richText: [
+              { text: 'Reducción', font: { italic: true, bold: false, color: { argb: this.toARGB('6b7280') } } }
+            ]
+          };
+          cellData.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
         } else {
-          this.setY1Cell(cell, cellData.groups);
+          cellData.value = '—';
+          cellData.alignment = { wrapText: true, vertical: 'top', horizontal: 'center' };
         }
-      });
-
-      this.wrapRow(row);
-    }
-
-    this.tableLook(ws, 4, 1, ws.rowCount, ws.columnCount, THEME.y1, true, 2);
-    this.autoSizeColumns(ws);
-    await this.download(wb, opts.filename || 'Compensatorios_Y1.xlsx');
-  }
-
-  /** RichText Y1: encabezado gris/itálica + lista de nombres (solo el nombre en negrilla) */
-  private setY1Cell(
-    cell: ExcelJS.Cell,
-    groups: Array<{ puesto: string; maquina: string; turno: string; colaboradores: string[] }>
-  ) {
-    const runs: ExcelJS.RichText[] = [];
-    const gray = this.toARGB('6b7280');
-
-    groups.forEach((g, gi) => {
-      const header = `[${g.puesto || '-'}] • [${g.maquina || '-'}] • [${g.turno || '-'}]`;
-
-      // Encabezado del grupo (no en negrita)
-      runs.push({ text: header, font: { italic: true, color: { argb: gray }, bold: false } });
-
-      if (g.colaboradores?.length) {
-        g.colaboradores.forEach((nombre) => {
-          // Viñeta normal (siempre quitar bold explícitamente)
-          runs.push({ text: '\n• ', font: { bold: false, color: { argb: gray } } });
-          // Nombre en negrita
-          runs.push({ text: nombre, font: { bold: true } });
-          // (opcional) Puesto en itálica gris para igualar el look de Domingo
-        });
       } else {
-        runs.push({ text: '\n—', font: { bold: false } });
+        this._setY1SplitCells(cellTurno, cellData, groups, col.iso, opts.isReduc);
       }
-
-      // Separación entre grupos (forzar no-bold)
-      if (gi < groups.length - 1) runs.push({ text: '\n', font: { bold: false } });
     });
 
-    (cell as any).value = { richText: runs };
-    cell.alignment = { wrapText: true, vertical: 'top', horizontal: 'center' };
+    this.wrapRow(row);
   }
+
+  this.tableLook(ws, 4, 1, ws.rowCount, ws.columnCount, THEME.y1, true, 2);
+  this.autoSizeColumns(ws);
+
+  // Estrechar columnas "Turno" (2, 4, 6, …) para que se ajusten al texto
+  opts.cols.forEach((_, i) => {
+    const turnoColIdx = 2 + (i * 2);
+    const col = ws.getColumn(turnoColIdx);
+    const current = Number(col.width) || 12;
+    col.width = Math.min(current, 12);
+    col.alignment = { wrapText: true, vertical: 'top', horizontal: 'center' } as any;
+  });
+
+  await this.download(wb, opts.filename || 'Compensatorios_Y1.xlsx');
+}
 
   /** Reducciones Y2 */
   /** Reducciones Y2 (cabecera 2 líneas + celdas ricas) */
-  async exportY2(opts: {
-    filename?: string;
-    titulo: string; subtitulo: string;
-    cols: { label: string; iso: string }[];
-    rows: Array<{ reemplazo: string; cells: Record<string, { groups: Array<{ puesto: string; maquina: string; turno: string; franja: string; horas: number; colaboradores: string[] }> }> }>;
-    incidencias?: Array<{ colaboradorNombre: string; grupo: string; fecha: string; turno?: string; franja?: string; motivo: string; }>;
-  }) {
-    const wb = new ExcelJS.Workbook();
+ /** Reducciones Y2 (cabecera 2 líneas + columnas por día desdobladas en: Turno | Reducción) */
+async exportY2(opts: {
+  filename?: string;
+  titulo: string; subtitulo: string;
+  cols: { label: string; iso: string }[];
+  rows: Array<{ reemplazo: string; cells: Record<string, { groups: Array<{ puesto: string; maquina: string; turno: string; franja: string; horas: number; colaboradores: string[] }> }> }>;
+  incidencias?: Array<{ colaboradorNombre: string; grupo: string; fecha: string; turno?: string; franja?: string; motivo: string; }>;
+  /** NUEVO: callback para marcar si un nombre está en compensatorio ese día */
+  isComp?: (iso: string, nombre: string) => boolean;
+}) {
 
-    // Hoja Reducciones
-    const ws = wb.addWorksheet('Reducciones', { views: [{ state: 'frozen', xSplit: 1, ySplit: 4 }] });
-    this.setupPage(ws);
-    this.addTitle(ws, opts.titulo, opts.subtitulo, THEME.y2);
+  const wb = new ExcelJS.Workbook();
 
-    // Cabecera Día / ISO
-    this.addTwoLineHeader(ws, {
-      top: ['Reemplazo', ...opts.cols.map(c => c.label)],
-      bottom: ['', ...opts.cols.map(c => c.iso)],
-    }, THEME.y2);
+  // Hoja Reducciones
+  const ws = wb.addWorksheet('Reducciones', { views: [{ state: 'frozen', xSplit: 1, ySplit: 4 }] });
+  this.setupPage(ws);
+  this.addTitle(ws, opts.titulo, opts.subtitulo, THEME.y2);
 
-    // Filas (una por reemplazo)
-    for (const r of opts.rows) {
-      const row = ws.addRow(new Array(1 + opts.cols.length).fill(null));
+  // Cabecera “desdoblada”: por cada día => 2 columnas (Turno | Reducción)
+  const topHdr = ['Reemplazo', ...opts.cols.flatMap(c => [c.label, c.label])];
+  const botHdr = ['', ...opts.cols.flatMap(_ => ['Turno', 'Reducción'])];
+  this.addTwoLineHeader(ws, { top: topHdr, bottom: botHdr }, THEME.y2);
 
-      // Columna 1: Reemplazo en negrita
-      const c1 = row.getCell(1);
-      c1.value = r.reemplazo || '—';
-      c1.font = { bold: true };
-      c1.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+  // Filas (una por reemplazo)
+  for (const r of opts.rows) {
+    const row = ws.addRow(new Array(1 + (opts.cols.length * 2)).fill(null));
 
-      // Celdas por día (richText)
-      opts.cols.forEach((col, i) => {
-        const cell = row.getCell(2 + i);
-        const data = r.cells[col.iso];
-        if (!data?.groups?.length) {
-          cell.value = '—';
-          cell.alignment = { wrapText: true, vertical: 'top', horizontal: 'center' };
-        } else {
-          this.setY2Cell(cell, data.groups);
+    // Columna 1: Reemplazo en negrita
+    const c1 = row.getCell(1);
+    c1.value = r.reemplazo || '—';
+    c1.font = { bold: true };
+    c1.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+
+    // Celdas por día: [Turno] | [Reducción]
+    opts.cols.forEach((col, i) => {
+      const baseCol = 2 + (i * 2);
+      const cellTurno = row.getCell(baseCol + 0);
+      const cellData  = row.getCell(baseCol + 1);
+
+      const data = r.cells[col.iso];
+      const groups = this._sortY2GroupsByFranja(data?.groups || []);
+
+      if (!groups.length) {
+    // 🔧 NUEVO: si el REEMPLAZO de la fila está en compensatorio, muéstralo.
+    const compFila = opts.isComp ? opts.isComp(col.iso, r.reemplazo) : false;
+
+    cellTurno.value = '—';
+    cellTurno.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
+
+    if (compFila) {
+      // pinta "Compensatorio" bonito en la celda de Reducción
+      (cellData as any).value = {
+        richText: [
+          { text: 'Compensatorio', font: { italic: true, bold: false, color: { argb: this.toARGB('6b7280') } } }
+        ]
+      };
+      cellData.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
+    } else {
+      cellData.value = '—';
+      cellData.alignment = { wrapText: true, vertical: 'top', horizontal: 'center' };
+    }
+  } else {
+    this._setY2SplitCells(cellTurno, cellData, groups, col.iso, opts.isComp);
+  }
+});
+
+    this.wrapRow(row);
+  }
+
+  this.tableLook(ws, 4, 1, ws.rowCount, ws.columnCount, THEME.y2, true, 2);
+  this.autoSizeColumns(ws);
+
+  // Estrechar columnas "Turno" (2, 4, 6, …)
+opts.cols.forEach((_, i) => {
+  const turnoColIdx = 2 + (i * 2);
+  const col = ws.getColumn(turnoColIdx);
+  // ancho máximo 12 (ajusta a tu gusto: 10-12 queda bien)
+  const current = Number(col.width) || 12;
+  col.width = Math.min(current, 12);
+  // centra por si acaso
+  col.alignment = { wrapText: true, vertical: 'top', horizontal: 'center' } as any;
+});
+
+  // Hoja Incidencias (igual)
+  if (opts.incidencias?.length) {
+    const ws2 = wb.addWorksheet('Incidencias');
+    this.setupPage(ws2);
+    this.addTitle(ws2, opts.titulo, 'Incidencias de la semana', THEME.y2);
+    ws2.addRow(['Titular', 'Grupo', 'Fecha', 'Turno', 'Franja', 'Motivo']).font = { bold: true };
+    for (const i of opts.incidencias) {
+      ws2.addRow([i.colaboradorNombre, i.grupo, i.fecha, i.turno || '—', i.franja || '—', i.motivo]);
+    }
+    this.tableLook(ws2, 2, 1, ws2.rowCount, 6, THEME.y2, false, 1);
+    this.autoSizeColumns(ws2);
+  }
+
+  await this.download(wb, opts.filename || 'Reducciones.xlsx');
+}
+
+/** Orden por franja: M1, M2, T1, T2, y de último DIA_COMPLETO / otros */
+private _sortY2GroupsByFranja<T extends { franja: string; horas: number }>(groups: T[]): T[] {
+  const order = [
+    '06:00-10:00',  // M1
+    '10:00-14:00',  // M2
+    '14:00-18:00',  // T1
+    '18:00-22:00',  // T2
+    'DIA_COMPLETO'
+  ];
+  const rank = (f?: string) => {
+    const up = (f || '').toUpperCase();
+    const idx = order.indexOf(up);
+    return idx === -1 ? 99 : idx;
+  };
+  return groups.slice().sort((a, b) =>
+    rank(a.franja) - rank(b.franja) ||
+    (a.horas || 0) - (b.horas || 0)
+  );
+}
+
+/** Normaliza texto y filtra valores “vacíos” o placeholders que no deben exportarse */
+private _cleanToken(v?: string | null): string {
+  const t = (v || '').trim();
+  if (!t) return '';
+  const up = t.toUpperCase();
+  if (up === '—' || up === '-' || up === 'SIN PUESTO' || up === 'SIN MAQUINA' || up === 'SIN MÁQUINA') return '';
+  return t;
+}
+
+/** Deriva el texto de turno “bonito” desde franja o turno */
+private _turnoFromGroup(g: { turno: string; franja: string }): string {
+  const f = (g.franja || '').toUpperCase();
+  if (f === '06:00-10:00' || f === '10:00-14:00') return '06:00-14:00';
+  if (f === '14:00-18:00' || f === '18:00-22:00') return '14:00-22:00';
+  // fallback con lo que venga en “turno”
+  return g.turno || '';
+}
+
+/**
+ * Escribe en dos celdas:
+ *  - cellTurno: solo el turno (una línea por grupo, ordenado por franja)
+ *  - cellData:  encabezado SIN turno (franja + (horas) + puesto/maquina limpios) + lista de nombres
+ */
+private _setY2SplitCells(
+  cellTurno: ExcelJS.Cell,
+  cellData: ExcelJS.Cell,
+  groups: Array<{ puesto: string; maquina: string; turno: string; franja: string; horas: number; colaboradores: string[] }>,
+  iso?: string,
+  isComp?: (iso: string, nombre: string) => boolean
+) {
+  // 1) Celda de TURNOS: SIN duplicados
+  const uniqTurnos = Array.from(new Set(
+    groups.map(g => this._turnoFromGroup(g)).map(t => t || '—')
+  ));
+  cellTurno.value = uniqTurnos.join('\n');
+  cellTurno.alignment = { wrapText: true, vertical: 'top', horizontal: 'center' };
+
+  // 2) Celda de DATOS (richText SIN turno)
+  const runs: ExcelJS.RichText[] = [];
+  const gray = this.toARGB('6b7280');
+
+  groups.forEach((g, gi) => {
+    const fr = g.franja || '';
+    const hh = g.horas ? `(${g.horas}h)` : '';
+
+    const p = this._cleanToken(g.puesto);
+    const m = this._cleanToken(g.maquina);
+
+    const extras: string[] = [];
+    if (p) extras.push(p);
+    if (m) extras.push(m);
+
+    const header = extras.length
+      ? `${fr} ${hh} • ${extras.join(' / ')}`
+      : `${fr} ${hh}`.trim();
+
+    runs.push({ text: header || '-', font: { italic: true, color: { argb: gray }, bold: false } });
+
+    // Nombres (+ “compensatorio” si aplica)
+    if (g.colaboradores?.length) {
+      g.colaboradores.forEach(nombre => {
+        runs.push({ text: '\n• ', font: { bold: false, color: { argb: gray } } });
+        runs.push({ text: nombre, font: { bold: true } });
+
+        const comp = iso && isComp ? isComp(iso, nombre) : false;
+        if (comp) {
+          runs.push({ text: ' (compensatorio)', font: { italic: true, color: { argb: gray }, bold: false } });
         }
       });
-
-      this.wrapRow(row);
+    } else {
+      runs.push({ text: '\n—', font: { bold: false } });
     }
 
-    this.tableLook(ws, 4, 1, ws.rowCount, ws.columnCount, THEME.y2, true, 2);
-    this.autoSizeColumns(ws);
+    if (gi < groups.length - 1) runs.push({ text: '\n', font: { bold: false } });
+  });
 
-    // Hoja Incidencias (igual que ya tenías)
-    if (opts.incidencias?.length) {
-      const ws2 = wb.addWorksheet('Incidencias');
-      this.setupPage(ws2);
-      this.addTitle(ws2, opts.titulo, 'Incidencias de la semana', THEME.y2);
-      ws2.addRow(['Titular', 'Grupo', 'Fecha', 'Turno', 'Franja', 'Motivo']).font = { bold: true };
-      for (const i of opts.incidencias) {
-        ws2.addRow([i.colaboradorNombre, i.grupo, i.fecha, i.turno || '—', i.franja || '—', i.motivo]);
-      }
-      this.tableLook(ws2, 2, 1, ws2.rowCount, 6, THEME.y2, false, 1);
-      this.autoSizeColumns(ws2);
-    }
+  (cellData as any).value = { richText: runs };
+  cellData.alignment = { wrapText: true, vertical: 'top', horizontal: 'center' };
+}
 
-    await this.download(wb, opts.filename || 'Reducciones.xlsx');
-  }
+/**
+ * Y1: Escribe en dos celdas:
+ *  - cellTurno: solo el turno (una línea por grupo, SIN duplicados)
+ *  - cellData:  encabezado SIN turno (solo puesto/maquina si existen) + lista de nombres
+ *               y marca "(reducción)" al lado del nombre si está en Reducción ese día.
+ */
+private _setY1SplitCells(
+  cellTurno: ExcelJS.Cell,
+  cellData: ExcelJS.Cell,
+  groups: Array<{ puesto: string; maquina: string; turno: string; colaboradores: string[] }>,
+  iso?: string,
+  isReduc?: (iso: string, nombre: string) => boolean
+) {
+  // 1) Celda de TURNOS: SIN duplicados
+  const uniqTurnos = Array.from(new Set(
+    groups.map(g => (g.turno || '').trim()).map(t => t || '—')
+  ));
+  cellTurno.value = uniqTurnos.join('\n');
+  cellTurno.alignment = { wrapText: true, vertical: 'top', horizontal: 'center' };
 
-  // ======================== HELPERS ========================
-  /** RichText Y2: encabezado gris/itálica + lista de nombres (solo el nombre en negrilla) */
-  private setY2Cell(
-    cell: ExcelJS.Cell,
-    groups: Array<{ puesto: string; maquina: string; turno: string; franja: string; horas: number; colaboradores: string[] }>
-  ) {
-    const runs: ExcelJS.RichText[] = [];
-    const gray = this.toARGB('6b7280');
+  // 2) Celda de DATOS (richText SIN turno)
+  const runs: ExcelJS.RichText[] = [];
+  const gray = this.toARGB('6b7280');
 
-    groups.forEach((g, gi) => {
-      // Encabezado del grupo (turno + franja + horas + puesto/maquina) en gris itálica, SIN negrita <--------------
-      const header =
-        `${g.franja || '-'} ${g.horas ? `(${g.horas}h)` : ''} • ${g.puesto || '-'}/${g.maquina || '-'}`;
+  groups.forEach((g, gi) => {
+    // Oculta puesto/maquina si vienen nulos/"sin" (igual que Y2 _cleanToken)
+    const p = this._cleanToken(g.puesto);
+    const m = this._cleanToken(g.maquina);
+
+    const extras: string[] = [];
+    if (p) extras.push(p);
+    if (m) extras.push(m);
+
+    const header = extras.length ? extras.join(' / ') : ''; // SIN turno
+
+    // Encabezado (si hay algo que mostrar)
+    if (header) {
       runs.push({ text: header, font: { italic: true, color: { argb: gray }, bold: false } });
+    } else {
+      runs.push({ text: '-', font: { italic: true, color: { argb: gray }, bold: false } });
+    }
 
-      // Lista de colaboradores: viñeta normal + NOMBRE en negrita
-      if (g.colaboradores?.length) {
-        g.colaboradores.forEach(nombre => {
-          runs.push({ text: '\n• ', font: { bold: false, color: { argb: gray } } });
-          runs.push({ text: nombre, font: { bold: true } });
-          // si quisieras añadir (puesto) debajo: descomenta la línea siguiente
-          // runs.push({ text: `\n(${g.puesto || ''})`, font: { italic: true, color: { argb: gray }, bold: false } });
-        });
-      } else {
-        runs.push({ text: '\n—', font: { bold: false } });
-      }
+    // Nombres (+ “reducción” si aplica)
+    if (g.colaboradores?.length) {
+      g.colaboradores.forEach(nombre => {
+        runs.push({ text: '\n• ', font: { bold: false, color: { argb: gray } } });
+        runs.push({ text: nombre, font: { bold: true } });
 
-      // Separación entre grupos
-      if (gi < groups.length - 1) runs.push({ text: '\n', font: { bold: false } });
-    });
+        const reduc = iso && isReduc ? isReduc(iso, nombre) : false;
+        if (reduc) {
+          runs.push({ text: ' (reducción)', font: { italic: true, color: { argb: gray }, bold: false } });
+        }
+      });
+    } else {
+      runs.push({ text: '\n—', font: { bold: false } });
+    }
 
-    (cell as any).value = { richText: runs };
-    cell.alignment = { wrapText: true, vertical: 'top', horizontal: 'center' };
-  }
+    if (gi < groups.length - 1) runs.push({ text: '\n', font: { bold: false } });
+  });
+
+  (cellData as any).value = { richText: runs };
+  cellData.alignment = { wrapText: true, vertical: 'top', horizontal: 'center' };
+}
+
 
   private setupPage(ws: ExcelJS.Worksheet) {
     ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, paperSize: 9 /*A4*/ };
@@ -426,7 +586,7 @@ export class ExcelExportService {
   ) {
     const dataStart = headerStart + headerLines;
     for (let r = headerStart; r <= endRow; r++) {
-      const isData = r > dataStart;
+      const isData = r >= dataStart;
       for (let c = startCol; c <= endCol; c++) {
         const cell = ws.getCell(r, c);
         cell.border = {

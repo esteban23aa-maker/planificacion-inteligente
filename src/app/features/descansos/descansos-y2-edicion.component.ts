@@ -38,6 +38,7 @@ import { ConfirmDialogComponent } from 'src/app/features/programacion/dialogs/co
 import { AuthService } from 'src/app/core/services/auth.service';
 import { DescansosY2CrudService } from 'src/app/core/services/descansos-y2-crud.service';
 import { DescansosY2Service } from 'src/app/core/services/descansos-y2.service';
+import { DescansosY1Service } from 'src/app/core/services/descansos-y1.service';
 import {
   Y2BacklogItemDTO, Y2DisponibilidadDTO, Y2SlotDTO, Y2OtorgarHorasRequest
 } from 'src/app/core/models/descanso-y2-crud.model';
@@ -98,6 +99,8 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
   private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
   private dialog = inject(MatDialog);
+  private y1 = inject(DescansosY1Service);                 
+  private overlayY1Busy = new Map<string, Set<string>>();
 
   // ===== Dialog templates =====
   @ViewChild('crearDialog') crearDialog!: TemplateRef<any>;
@@ -254,44 +257,55 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
 
   // ===== Carga de datos =====
   cargar() {
-    this.loading = true;
-    forkJoin({
-      backlog: this.crud.getBacklog(this.domingo),
-      descansos: this.svc.getDescansos(this.domingo)
-    }).subscribe({
-      next: ({ backlog, descansos }) => {
-        this.backlog = backlog || [];
-        this.descansosSemana = descansos || [];
+  this.loading = true;
+  forkJoin({
+    backlog: this.crud.getBacklog(this.domingo),
+    descansos: this.svc.getDescansos(this.domingo),
+    y1Descansos: this.y1.getDescansos(this.domingo)
+  }).subscribe({
+    next: ({ backlog, descansos, y1Descansos }) => {
+      this.backlog = backlog || [];
+      this.descansosSemana = descansos || [];
 
-        this.colaboradoresList = this.backlog
-          .map(b => ({ id: b.colaboradorId, nombre: b.nombre }))
-          .sort((a, b) => a.nombre.localeCompare(b.nombre));
-
-        this.descansosData = this.descansosSemana.slice().sort((a, b) =>
-          (a.fechaReduccion || '').localeCompare(b.fechaReduccion || '') ||
-          (a.colaborador || '').localeCompare(b.colaborador || '')
-        );
-
-        this.buildCalendar();
-
-        if (this.pendingScrollIso) {
-          const iso = this.pendingScrollIso;
-          setTimeout(() => this.scrollToIso(iso), 120);
-          this.pendingScrollIso = null;
-        }
-
-        this.recalcDisponiblesCrear();
-
-        this.loading = false;
-        this.cdr.markForCheck();
-      },
-      error: err => {
-        this.loading = false;
-        this.snack.open('Error cargando edición Y2: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 });
-        this.cdr.markForCheck();
+      // Overlay Y1 (compensatorio)
+      this.overlayY1Busy.clear();
+      for (const d of (y1Descansos || [])) {
+        const nombreReemplazo = this._norm(d.reemplazo);
+        const iso = d.fechaDescanso;
+        if (!nombreReemplazo || !iso) continue;
+        if (!this.overlayY1Busy.has(nombreReemplazo)) this.overlayY1Busy.set(nombreReemplazo, new Set());
+        this.overlayY1Busy.get(nombreReemplazo)!.add(iso);
       }
-    });
-  }
+
+      this.colaboradoresList = (this.backlog || [])
+        .map(b => ({ id: b.colaboradorId, nombre: b.nombre }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+      this.descansosData = (this.descansosSemana || []).slice().sort((a, b) =>
+        (a.fechaReduccion || '').localeCompare(b.fechaReduccion || '') ||
+        (a.colaborador || '').localeCompare(b.colaborador || '')
+      );
+
+      this.buildCalendar();
+
+      if (this.pendingScrollIso) {
+        const iso = this.pendingScrollIso;
+        setTimeout(() => this.scrollToIso(iso), 120);
+        this.pendingScrollIso = null;
+      }
+
+      this.recalcDisponiblesCrear();
+      this.loading = false;
+      this.cdr.markForCheck();
+    },
+    error: err => {
+      this.loading = false;
+      this.snack.open('Error cargando edición Y2: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 });
+      this.cdr.markForCheck();
+    }
+  });
+}
+
 
   // ===== Calendario =====
   private buildWeekCols(domingoISO: ISO) {
@@ -403,7 +417,8 @@ private reemplazoNameIdMap(): Map<string, number> {
     for (const row of rowsMap.values()) {
       for (const col of this.calendarCols) {
         if (!row.cells[col.iso]) row.cells[col.iso] = { groups: [] };
-        this.ensureSmartEmptySlots(row.cells[col.iso], !row.isAutoOnly);
+        const bloqueadoPorY1 = this.isY1Ocupado(row.reemplazo, col.iso);
+        this.ensureSmartEmptySlots(row.cells[col.iso], !row.isAutoOnly && !bloqueadoPorY1);
       }
       for (const iso of Object.keys(row.cells)) {
         const cell = row.cells[iso];
@@ -858,6 +873,20 @@ private reemplazoNameIdMap(): Map<string, number> {
 
     this.cdr.markForCheck();
   }
+
+  // normalizador local 
+private _norm(s?: string | null): string {
+  return (s || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+    .toUpperCase();
+}
+
+// helper para template
+isY1Ocupado(nombreFila: string, iso: string): boolean {
+  return this.overlayY1Busy.get(this._norm(nombreFila))?.has(iso) ?? false;
+}
 
   resetDerechos() {
     const d = this.domingo;

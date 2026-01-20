@@ -67,6 +67,8 @@ export class DescansosY2Component implements OnInit {
   private excel = inject(ExcelExportService);
   private y1 = inject(DescansosY1Service);
   private overlayY1Busy = new Map<string, Set<ISODate>>();
+  private y2Assigned = new Map<ISODate, Set<string>>();
+
 
   reemplazos: ReemplazoY2[] = [];
   descansos: DescansoY2[] = [];
@@ -168,13 +170,32 @@ export class DescansosY2Component implements OnInit {
         this.resumenColaboradores = resumen;
 
         // ---- construir overlay “Compensatorio” (Y1 ocupado) ----
-        this.overlayY1Busy.clear();
+       /* this.overlayY1Busy.clear();
         for (const d of y1Descansos || []) {
           const nombreY1 = (d.reemplazo || '').trim();   // persona del grupo Y1 que hizo el reemplazo
           const iso = d.fechaDescanso;                    // ISO del día
           if (!nombreY1) continue;
           if (!this.overlayY1Busy.has(nombreY1)) this.overlayY1Busy.set(nombreY1, new Set());
           this.overlayY1Busy.get(nombreY1)!.add(iso);
+        }*/
+        this.overlayY1Busy.clear();
+        for (const d of y1Descansos || []) {
+          const raw = (d.reemplazo || '').trim();          // Y1 que hizo el reemplazo
+          if (!raw || raw === '—') continue;               // evita placeholder
+          const key = this.norm(raw);                      // 🔧 normaliza aquí
+          const iso = d.fechaDescanso;
+          if (!this.overlayY1Busy.has(key)) this.overlayY1Busy.set(key, new Set());
+          this.overlayY1Busy.get(key)!.add(iso);
+        }
+
+         // ---- índice de Y2 por día/persona ----
+        this.y2Assigned.clear();
+        for (const d of this.descansos || []) {
+          const iso = d.fechaReduccion;
+          const who = this.norm(d.colaborador);
+          if (!iso || !who) continue;
+          if (!this.y2Assigned.has(iso)) this.y2Assigned.set(iso, new Set());
+          this.y2Assigned.get(iso)!.add(who);
         }
 
         this.buildCalendar();
@@ -189,7 +210,9 @@ export class DescansosY2Component implements OnInit {
 
   // Helper para el template
   isY1Ocupado(nombreFila: string, iso: ISODate): boolean {
-    return this.overlayY1Busy.get((nombreFila || '').trim())?.has(iso) ?? false;
+    const key = this.norm(nombreFila); 
+    /*return this.overlayY1Busy.get((nombreFila || '').trim())?.has(iso) ?? false;*/
+    return this.overlayY1Busy.get(key)?.has(iso) ?? false;
   }
 
   /** Construye el calendario y deja las filas AUTO-ONLY al final (antes de "— Sin asignar"). */
@@ -407,17 +430,36 @@ export class DescansosY2Component implements OnInit {
     });
   }
 
+  // helper para normalizar nombres (tildes, mayúsculas y espacios)
+private norm(s?: string | null): string {
+  return (s || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+    .toUpperCase();
+}
+
+
   exportarExcel(): void {
-    const rows = this.filteredRows();
-    this.excel.exportY2({
-      titulo: 'Reducciones',
-      subtitulo: this.subtitle,
-      cols: this.calendarCols,
-      rows: rows,
-      incidencias: this.incidencias,
-      filename: `Reducciones_${this.domingoActual}.xlsx`
-    });
+  const rows = this.filteredRows();
+
+  this.excel.exportY2({
+    titulo: 'Reducciones',
+    subtitulo: this.subtitle,
+    cols: this.calendarCols,
+    rows,
+    incidencias: this.incidencias,
+    filename: `Reducciones_${this.domingoActual}.xlsx`,
+    // 👇 usa el mismo overlay que pintas en la tabla
+      isComp: (iso, nombre) => {
+    const key = this.norm(nombre);
+    const busy = this.overlayY1Busy.get(key)?.has(iso) ?? false;
+    const hasY2 = this.y2Assigned.get(iso)?.has(key) ?? false;
+    return busy && !hasY2;   // 👈 evita marcar si esa persona tiene Y2 ese día
   }
+});
+}
+
 
   // En la clase:
   dayMap: Record<string, string> = {

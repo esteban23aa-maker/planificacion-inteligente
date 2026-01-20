@@ -60,7 +60,7 @@
 
                       <!-- SLOT VACÍO: crear o mover (abre modal mover) -->
                       <div class="people"
-                           *ngIf="g.empty && !row.isAutoOnly"
+                           *ngIf="g.empty && !row.isAutoOnly && !isY1Ocupado(row.reemplazo, col.iso)"
                            cdkDropList
                            [cdkDropListConnectedTo]="connectedLists"
                            [cdkDropListEnterPredicate]="allowEnter"
@@ -137,8 +137,13 @@
                     </div>
                   </div>
                 </ng-container>
+                <!-- 👇 Badge de ocupación por Compensatorio (Y1) -->
+                <div class="overlay-badge compensatorio" *ngIf="isY1Ocupado(row.reemplazo, col.iso)">
+                  <span>Compensatorio</span>
+                </div>
 
-                <ng-template #emptyCell>—</ng-template>
+
+                <ng-template #emptyCell></ng-template>
               </td>
             </tr>
           </tbody>
@@ -591,7 +596,7 @@
       </button>
     </mat-dialog-actions>
   </ng-template>
-  
+
   <div class="footer-actions">
     <div class="footer-left"></div>
     <div class="footer-center">

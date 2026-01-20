@@ -139,6 +139,7 @@ export class DescansosY1Component implements OnInit {
       .toUpperCase();
   }
 
+
   cargarDatos(domingo?: string): void {
     this.loading = true;
     forkJoin({
@@ -155,22 +156,28 @@ export class DescansosY1Component implements OnInit {
         this.overlayY2Reduc.clear();
         for (const d of y2 || []) {
           const modalidad = (d.modalidad || '').toUpperCase();
-          if (modalidad.includes('AUTO')) continue; // no ocupa a nadie
+          const iso = d.fechaReduccion;
 
-          const key = this.norm(d.reemplazo);
+          // No-AUTO => marcar al reemplazo (persona del grupo Y1 que ocupó) se hizo cambio antes if (modalidad.includes('AUTO')) continue; // no ocupa a nadie
+
+          const key = modalidad.includes('AUTO')
+            ? this.norm(d.colaborador)
+            : this.norm(d.reemplazo);
+
           if (!key || key === '—') continue;
 
-          const iso = d.fechaReduccion;
-          if (!this.overlayY2Reduc.has(key)) this.overlayY2Reduc.set(key, new Set<ISODate>());
+          if (!this.overlayY2Reduc.has(key)) {
+            this.overlayY2Reduc.set(key, new Set<ISODate>());
+          }
           this.overlayY2Reduc.get(key)!.add(iso);
         }
 
-        this.buildCalendar();
-        this.loading = false;
-      },
-      error: () => { this.loading = false; }
-    });
-  }
+                this.buildCalendar();
+                this.loading = false;
+              },
+              error: () => { this.loading = false; }
+            });
+          }
 
   // y el helper del template usa norm:
   tieneReduccion(nombreFila: string, iso: ISODate): boolean {
@@ -316,6 +323,7 @@ export class DescansosY1Component implements OnInit {
     });
   }
 
+
   exportarExcel(): void {
     const rows = this.filteredRows(); // respeta filtros UI
     this.excel.exportY1({
@@ -323,8 +331,14 @@ export class DescansosY1Component implements OnInit {
       subtitulo: this.subtitle,
       cols: this.calendarCols, // [{label, iso}]
       rows: rows,              // [{reemplazo, cells{iso:{groups:[...]}}}]
-      filename: `Compensatorios_${this.domingoActual}.xlsx`
-    });
+      filename: `Compensatorios_${this.domingoActual}.xlsx`,
+
+        isReduc: (iso, nombre) => {
+      const key = this.norm(nombre);
+      return this.overlayY2Reduc.get(key)?.has(iso) ?? false;
+    }
+  });
+    
   }
 
   trackByCol = (_: number, c: CalendarCol) => c.iso;
