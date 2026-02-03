@@ -10,9 +10,16 @@
         <mat-icon class="mr-1">edit</mat-icon> Editar reducción
       </button>
 
-      <button mat-stroked-button color="primary" (click)="generar()">
+      <!--<button mat-stroked-button color="primary" (click)="generar()">
         <mat-icon class="mr-1">auto_mode</mat-icon> Generar reducciones
+      </button>-->
+      <button mat-flat-button color="primary"
+              (click)="generarPasoAPasoAutomatico()"
+              *ifRoles="['ADMIN','SUPERVISOR']">
+        <mat-icon class="mr-1">auto_awesome</mat-icon>
+        Generar Reducciones
       </button>
+
 
       <button mat-stroked-button color="warn" (click)="eliminar()">
         <mat-icon class="mr-1">delete_forever</mat-icon> Eliminar reducciones
@@ -26,10 +33,10 @@
 </ui-page-header>
 
 <!-- --- Botonera generación por partes (HORIZONTAL) --- -->
-<div class="pro-toolbar gen-toolbar-horizontal">
+ <div class="pro-toolbar gen-toolbar-horizontal">
 
   <button mat-stroked-button color="primary"
-          [disabled]="genLoading.TURNO_FIJO"
+          [disabled]="genLoading.TURNO_FIJO  || fullscreenLoading"
           (click)="run('TURNO_FIJO')">
     <span class="btn-content">
       <mat-icon *ngIf="!genLoading.TURNO_FIJO">schedule</mat-icon>
@@ -40,7 +47,7 @@
   </button>
 
   <button mat-stroked-button color="primary"
-          [disabled]="genLoading.MANANA"
+          [disabled]="genLoading.MANANA  || fullscreenLoading"
           (click)="run('MANANA')">
     <span class="btn-content">
       <mat-icon *ngIf="!genLoading.MANANA">wb_sunny</mat-icon>
@@ -51,7 +58,7 @@
   </button>
 
   <button mat-stroked-button color="primary"
-          [disabled]="genLoading.NOCHE"
+          [disabled]="genLoading.NOCHE  || fullscreenLoading"
           (click)="run('NOCHE')">
     <span class="btn-content">
       <mat-icon *ngIf="!genLoading.NOCHE">nights_stay</mat-icon>
@@ -62,7 +69,7 @@
   </button>
 
   <button mat-stroked-button color="primary"
-          [disabled]="genLoading.TARDE"
+          [disabled]="genLoading.TARDE  || fullscreenLoading"
           (click)="run('TARDE')">
     <span class="btn-content">
       <mat-icon *ngIf="!genLoading.TARDE">wb_twilight</mat-icon>
@@ -73,7 +80,7 @@
   </button>
 
   <button mat-stroked-button color="accent"
-          [disabled]="genLoading.GRUPO_Y2"
+          [disabled]="genLoading.GRUPO_Y2  || fullscreenLoading"
           (click)="run('GRUPO_Y2')">
     <span class="btn-content">
       <mat-icon *ngIf="!genLoading.GRUPO_Y2">group</mat-icon>
@@ -84,7 +91,7 @@
   </button>
 
   <button mat-stroked-button color="accent"
-          [disabled]="genLoading.GRUPO_Y1"
+          [disabled]="genLoading.GRUPO_Y1  || fullscreenLoading"
           (click)="run('GRUPO_Y1')">
     <span class="btn-content">
       <mat-icon *ngIf="!genLoading.GRUPO_Y1">person</mat-icon>

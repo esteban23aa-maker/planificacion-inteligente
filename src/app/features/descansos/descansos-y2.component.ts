@@ -170,14 +170,14 @@ export class DescansosY2Component implements OnInit {
         this.resumenColaboradores = resumen;
 
         // ---- construir overlay “Compensatorio” (Y1 ocupado) ----
-       /* this.overlayY1Busy.clear();
-        for (const d of y1Descansos || []) {
-          const nombreY1 = (d.reemplazo || '').trim();   // persona del grupo Y1 que hizo el reemplazo
-          const iso = d.fechaDescanso;                    // ISO del día
-          if (!nombreY1) continue;
-          if (!this.overlayY1Busy.has(nombreY1)) this.overlayY1Busy.set(nombreY1, new Set());
-          this.overlayY1Busy.get(nombreY1)!.add(iso);
-        }*/
+        /* this.overlayY1Busy.clear();
+         for (const d of y1Descansos || []) {
+           const nombreY1 = (d.reemplazo || '').trim();   // persona del grupo Y1 que hizo el reemplazo
+           const iso = d.fechaDescanso;                    // ISO del día
+           if (!nombreY1) continue;
+           if (!this.overlayY1Busy.has(nombreY1)) this.overlayY1Busy.set(nombreY1, new Set());
+           this.overlayY1Busy.get(nombreY1)!.add(iso);
+         }*/
         this.overlayY1Busy.clear();
         for (const d of y1Descansos || []) {
           const raw = (d.reemplazo || '').trim();          // Y1 que hizo el reemplazo
@@ -188,7 +188,7 @@ export class DescansosY2Component implements OnInit {
           this.overlayY1Busy.get(key)!.add(iso);
         }
 
-         // ---- índice de Y2 por día/persona ----
+        // ---- índice de Y2 por día/persona ----
         this.y2Assigned.clear();
         for (const d of this.descansos || []) {
           const iso = d.fechaReduccion;
@@ -210,7 +210,7 @@ export class DescansosY2Component implements OnInit {
 
   // Helper para el template
   isY1Ocupado(nombreFila: string, iso: ISODate): boolean {
-    const key = this.norm(nombreFila); 
+    const key = this.norm(nombreFila);
     /*return this.overlayY1Busy.get((nombreFila || '').trim())?.has(iso) ?? false;*/
     return this.overlayY1Busy.get(key)?.has(iso) ?? false;
   }
@@ -431,34 +431,34 @@ export class DescansosY2Component implements OnInit {
   }
 
   // helper para normalizar nombres (tildes, mayúsculas y espacios)
-private norm(s?: string | null): string {
-  return (s || '')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .normalize('NFD').replace(/\p{Diacritic}/gu, '')
-    .toUpperCase();
-}
+  private norm(s?: string | null): string {
+    return (s || '')
+      .trim()
+      .replace(/\s+/g, ' ')
+      .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+      .toUpperCase();
+  }
 
 
   exportarExcel(): void {
-  const rows = this.filteredRows();
+    const rows = this.filteredRows();
 
-  this.excel.exportY2({
-    titulo: 'Reducciones',
-    subtitulo: this.subtitle,
-    cols: this.calendarCols,
-    rows,
-    incidencias: this.incidencias,
-    filename: `Reducciones_${this.domingoActual}.xlsx`,
-    // 👇 usa el mismo overlay que pintas en la tabla
+    this.excel.exportY2({
+      titulo: 'Reducciones',
+      subtitulo: this.subtitle,
+      cols: this.calendarCols,
+      rows,
+      incidencias: this.incidencias,
+      filename: `Reducciones_${this.domingoActual}.xlsx`,
+      // 👇 usa el mismo overlay que pintas en la tabla
       isComp: (iso, nombre) => {
-    const key = this.norm(nombre);
-    const busy = this.overlayY1Busy.get(key)?.has(iso) ?? false;
-    const hasY2 = this.y2Assigned.get(iso)?.has(key) ?? false;
-    return busy && !hasY2;   // 👈 evita marcar si esa persona tiene Y2 ese día
+        const key = this.norm(nombre);
+        const busy = this.overlayY1Busy.get(key)?.has(iso) ?? false;
+        const hasY2 = this.y2Assigned.get(iso)?.has(key) ?? false;
+        return busy && !hasY2;   // 👈 evita marcar si esa persona tiene Y2 ese día
+      }
+    });
   }
-});
-}
 
 
   // En la clase:
@@ -515,4 +515,68 @@ private norm(s?: string | null): string {
 
   // ===== KPIs de incidencias =====
   get incTotal(): number { return this.incidencias?.length || 0; }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private async runSilent(modo: Y2GenModo): Promise<void> {
+    this.genLoading[modo] = true;
+
+    try {
+      await firstValueFrom(
+        this.svc.generarPorModo(modo, this.domingoActual)
+      );
+    } finally {
+      this.genLoading[modo] = false;
+    }
+
+  }
+
+  async generarPasoAPasoAutomatico() {
+    if (this.fullscreenLoading) return;
+    if (!this.auth.hasRole('SUPERVISOR', 'ADMIN')) {
+      this.snack.open('No autorizado.', 'OK', { duration: 2500 });
+      return;
+    }
+
+    const ok = await this.abrirConfirm(
+      'Esto ejecutará TODAS las reducciones paso a paso. ¿Continuar?'
+    );
+    if (!ok) return;
+
+    this.fullscreenLoading = true;
+
+    const orden: Y2GenModo[] = [
+      'TURNO_FIJO',
+      'MANANA',
+      'NOCHE',
+      'TARDE',
+      'GRUPO_Y2',
+      'GRUPO_Y1'
+    ];
+
+    try {
+      for (const modo of orden) {
+        this.snack.open(`⚙️ Ejecutando ${modo}…`, undefined, { duration: 1200 });
+        await this.runSilent(modo);
+        await this.delay(600); // 👈 pausa controlada (ajústala si quieres)
+      }
+
+      this.snack.open('✅ Reducciones generadas correctamente (paso a paso).', 'OK', {
+        duration: 3000
+      });
+
+      this.cargar(this.domingoActual);
+
+    } catch (e) {
+      this.snack.open('❌ Error durante la generación automática.', 'OK', {
+        duration: 4000
+      });
+    } finally {
+      this.fullscreenLoading = false;
+    }
+  }
+
+
 }

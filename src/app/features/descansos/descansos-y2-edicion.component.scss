@@ -669,3 +669,31 @@
   font-size: 12px;
   padding: 4px 9px;
 }
+
+/* ✅ ROJO de emergencia para toda la columna */
+.y2-edicion-page th.y1-emergency-col,
+.y2-edicion-page td.y1-emergency-col {
+  background: rgba(176, 0, 32, 0.16) !important;
+  box-shadow: inset 0 0 0 2px rgba(176, 0, 32, 0.55);
+}
+
+.y2-edicion-page th.y1-emergency-col {
+  background: rgba(176, 0, 32, 0.22) !important;
+  color: #3a0010;
+  font-weight: 700;
+}
+
+.y2-edicion-page td.y1-emergency-col,
+.y2-edicion-page th.y1-emergency-col {
+  animation: y1Pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes y1Pulse {
+  0%, 100% {
+    filter: saturate(1);
+  }
+
+  50% {
+    filter: saturate(1.25);
+  }
+}

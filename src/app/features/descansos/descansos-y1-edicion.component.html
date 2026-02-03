@@ -91,7 +91,11 @@
                                 [disabled]="!canEdit"
                                 [class.selected]="isSelected(c, col.iso)"
                                 matTooltip="Seleccionar descanso de {{c}}"
-                                (click)="onClickNombre(c, col.iso); swapMode && addSelectedToSwap()">
+                                (click)="onClickNombre(c, col.iso); swapMode && addSelectedToSwap()"
+                                cdkDrag
+                                [cdkDragData]="findDescanso(c, col.iso)?.id"
+                                (cdkDragStarted)="onDragStart($event)"
+                                (cdkDragEnded)="onDragEnd($event)">
                           {{ c }}
                         </button>
                       </div>
@@ -102,6 +106,21 @@
                        *ngIf="tieneReduccion(row.reemplazo, col.iso)">
                     Reducción
                   </div>
+
+                  <!-- Drop target por día -->
+                  <div class="drop-day"
+                       *ngIf="canEdit && !swapMode && !tieneReduccion(row.reemplazo, col.iso)"
+                       cdkDropList
+                       [cdkDropListConnectedTo]="connectedLists"
+                       [cdkDropListEnterPredicate]="allowEnter"
+                       [cdkDropListSortingDisabled]="true"
+                       (cdkDropListDropped)="onDropToDay(row, col.iso, $event)">
+                    <button mat-stroked-button class="slot-btn"
+                            (click)="onMoveHere(row.reemplazo, col.iso)">
+                      {{ selected ? 'Mover aquí' : 'Selecciona un descanso…' }}
+                    </button>
+                  </div>
+
                 </div>
               </td>
             </tr>

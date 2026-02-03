@@ -1,10 +1,96 @@
-:host { display:block; }
-mat-sidenav-container { background: var(--neutral-50); color: var(--fg); }
-mat-sidenav { border-right: 1px solid var(--neutral-200); }
+/* C:\Proyectos\planificacion-inteligente\src\app\features\dashboard\dashboard.component.css */
 
-/* estado activo del menú */
-a.mat-mdc-list-item.active {
-  background: var(--brand-50) !important;
-  color: var(--brand-800) !important;
+:host {
+  display: block;
 }
-a.mat-mdc-list-item:hover { background: var(--brand-50) !important; }
+
+.card {
+  border-radius: 1rem;
+  border: 1px solid var(--neutral-200, #e5e7eb);
+  background: var(--neutral-0, #ffffff);
+  box-shadow: 0 10px 30px rgba(0,0,0,.04);
+}
+
+.badge {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--brand-50, #eff6ff);
+  color: var(--brand-800, #1e3a8a);
+  font-weight: 600;
+}
+
+.badge-warn {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.badge-danger {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.kv {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--neutral-200, #e5e7eb);
+  background: var(--neutral-50, #f9fafb);
+}
+
+  .kv span {
+    font-size: 13px;
+    color: var(--muted, #6b7280);
+  }
+
+  .kv b {
+    font-size: 16px;
+    color: var(--fg, #111827);
+  }
+
+.state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+
+.state-info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.state-error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.empty {
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+  color: var(--muted, #6b7280);
+  gap: 8px;
+}
+
+.input-date {
+  border: 1px solid var(--neutral-200, #e5e7eb);
+  border-radius: 12px;
+  padding: 8px 12px;
+  background: var(--neutral-0, #ffffff);
+  color: var(--fg, #111827);
+  font-size: 14px;
+  outline: none;
+}
+
+  .input-date:focus {
+    border-color: var(--brand-600, #0477BF);
+    box-shadow: 0 0 0 3px rgba(4, 119, 191, .15);
+  }

@@ -26,6 +26,7 @@
               <th class="sticky-col first-col">Reemplazo</th>
               <th *ngFor="let col of calendarCols"
                   [class.today-col]="isToday(col.iso)"
+                  [class.y1-emergency-col]="isSelectedY1Day(col.iso)"
                   [attr.data-iso]="col.iso">
                 <div class="th-line1">{{ col.label }}</div>
                 <div class="th-line2">{{ col.iso }}</div>
@@ -41,6 +42,7 @@
 
               <td *ngFor="let col of calendarCols"
                   [class.today-col]="isToday(col.iso)"
+                  [class.y1-emergency-col]="isSelectedY1Day(col.iso)"
                   [attr.data-iso]="col.iso">
                 <ng-container *ngIf="row.cells[col.iso] as cell; else emptyCell">
                   <!-- buckets por turno -->
@@ -615,3 +617,24 @@
     <div class="loader-text">Procesando…</div>
   </div>
 </div>
+
+<ng-template #y1WarnDialog>
+  <h2 mat-dialog-title style="display:flex; align-items:center; gap:10px;">
+    <mat-icon style="color:#b00020;">warning</mat-icon>
+    Conflicto con compensatorio
+  </h2>
+
+  <mat-dialog-content class="dialog-content">
+    <p style="margin:0; font-size:14px; line-height:1.4;">
+      {{ selectedY1WarnText }}
+    </p>
+    <p style="margin-top:10px; font-size:12px; opacity:.8;">
+      Mientras esta persona esté seleccionada, se marcará en rojo la columna del día.
+    </p>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-flat-button color="warn" mat-dialog-close>Entendido</button>
+  </mat-dialog-actions>
+</ng-template>
+

@@ -1,5 +1,5 @@
 // IMPORTS igual que los que ya tienes…
-import { Component, OnInit, ViewEncapsulation, HostBinding, inject } from '@angular/core';
+import { Component, OnInit, ViewEncapsulation, HostBinding, inject, ViewChildren, QueryList, AfterViewInit, ChangeDetectorRef  } from '@angular/core';
 import { CommonModule, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, firstValueFrom } from 'rxjs';
@@ -26,6 +26,8 @@ import { IfRolesDirective } from 'src/app/shared/directives/if-roles.directive';
 import { ConfirmDialogComponent } from 'src/app/features/programacion/dialogs/confirm-dialog.component';
 import { AuthService } from 'src/app/core/services/auth.service';
 import { DescansosY2Service } from 'src/app/core/services/descansos-y2.service';
+import { DragDropModule, CdkDragStart, CdkDragEnd, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
+
 
 type ISODate = string;
 
@@ -41,6 +43,7 @@ type Density = 'comfortable' | 'compact' | 'ultra';
   standalone: true,
   imports: [
     CommonModule, FormsModule,
+    DragDropModule,                
     MatButtonModule, MatIconModule, MatSnackBarModule, MatProgressBarModule,
     MatFormFieldModule, MatInputModule, MatDialogModule, MatButtonToggleModule,
     MatDatepickerModule, MatNativeDateModule, MatSlideToggleModule, MatTooltipModule, MatSidenavModule, MatExpansionModule, MatChipsModule,
@@ -51,15 +54,17 @@ type Density = 'comfortable' | 'compact' | 'ultra';
   encapsulation: ViewEncapsulation.None,
   host: { class: 'descansos-y1-edicion-page' }
 })
-export class DescansosY1EdicionComponent implements OnInit {
+export class DescansosY1EdicionComponent implements OnInit, AfterViewInit {
 
   private svc = inject(DescansosY1Service);
   private snack = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private auth = inject(AuthService);
   private router = inject(Router);
-  private y2 = inject(DescansosY2Service);        // + NUEVO
-  private overlayY2Reduc = new Map<string, Set<ISODate>>(); // + NUEVO
+  private y2 = inject(DescansosY2Service);       
+  private overlayY2Reduc = new Map<string, Set<ISODate>>();
+  private cdr = inject(ChangeDetectorRef);
+
 
   trabajadores: TrabajadorDomingo[] = [];
   reemplazos: ReemplazoY1[] = [];
@@ -88,7 +93,7 @@ export class DescansosY1EdicionComponent implements OnInit {
   incidencias: IncidenciaDTO[] = [];
   incidenciasVisible = true;
 
-  // ⚡ NUEVO: reset individual
+  //  reset individual
   incluirManualesReset = false;
   noAvanzaRotacion = true; // por defecto: NO regenerar
 
@@ -204,6 +209,13 @@ export class DescansosY1EdicionComponent implements OnInit {
       }
 
         this.buildCalendar();
+
+        // 🔧 Refresca listas de drop tras pintar la tabla
+      queueMicrotask(() => {
+        this.connectedLists = this.dropLists?.toArray() ?? [];
+        this.cdr.detectChanges();
+      });
+
         this.loading = false;
       },
       error: (err) => {
@@ -264,6 +276,14 @@ export class DescansosY1EdicionComponent implements OnInit {
         for (const g of cell.groups) g.colaboradores.sort((a, b) => a.localeCompare(b));
       }
     }
+
+    //  asegura celda por cada día para todas las filas
+    for (const row of rowsMap.values()) {
+      for (const col of this.calendarCols) {
+        if (!row.cells[col.iso]) row.cells[col.iso] = { groups: [] };
+      }
+    }
+
 
     this.calendarRows = Array.from(rowsMap.values()).sort((a, b) => {
       const A = a.reemplazo === SIN_ASIGNAR_KEY, B = b.reemplazo === SIN_ASIGNAR_KEY;
@@ -344,7 +364,7 @@ export class DescansosY1EdicionComponent implements OnInit {
   }
 
   // ===== Selección desde la grilla =====
-  private findDescanso(colaborador: string, iso: ISODate): DescansoY1 | undefined {
+  findDescanso(colaborador: string, iso: ISODate): DescansoY1 | undefined {
     return this.descansos.find(d => d.colaborador === colaborador && d.fechaDescanso === iso);
   }
 
@@ -371,20 +391,30 @@ export class DescansosY1EdicionComponent implements OnInit {
   }
 
   // ===== Mover descanso =====
-  moverSeleccion(): void {
-    if (!this.selected) return;
-    if (!this.nuevaFechaDate) { this.snack.open('Selecciona una nueva fecha.', 'OK', { duration: 2000 }); return; }
-    const nuevaISO = this.toIsoLocal(this.nuevaFechaDate);
-    const rep = this.selected.reemplazo || '—';
+  moverSeleccion(targetReemplazo?: string): void {
+  if (!this.selected) return;
+  if (!this.nuevaFechaDate) { this.snack.open('Selecciona una nueva fecha.', 'OK', { duration: 2000 }); return; }
+
+  const nuevaISO = this.toIsoLocal(this.nuevaFechaDate);
+
+  if (nuevaISO === this.selected.fechaDescanso) {
+    this.snack.open('Ya está en esa fecha.', 'OK', { duration: 1800 });
+    return;
+  }
+
+  // 👇 Usa el reemplazo DESTINO si viene; si no, el del seleccionado (panel lateral)
+  const rep = (targetReemplazo ?? this.selected.reemplazo) || '—';
   if (this.tieneReduccion(rep, nuevaISO)) {
     this.snack.open('⛔ No se puede mover: el reemplazo tiene una Reducción (Y2) ese día.', 'OK', { duration: 3200 });
     return;
   }
-    this.svc.moverDescanso(this.selected.id, nuevaISO, this.forzar).subscribe({
-      next: (incs) => { this.setIncidencias(incs); this.cargarDatos(this.domingoActual); this.resetSelection(); },
-      error: (e) => { console.error(e); this.snack.open('⚠️ Error al mover el descanso.', 'OK', { duration: 3000 }); }
-    });
-  }
+
+  this.svc.moverDescanso(this.selected.id, nuevaISO, this.forzar).subscribe({
+    next: (incs) => { this.setIncidencias(incs); this.cargarDatos(this.domingoActual); this.resetSelection(); },
+    error: (e) => { console.error(e); this.snack.open('⚠️ Error al mover el descanso.', 'OK', { duration: 3000 }); }
+  });
+}
+
 
   quickPick(iso: ISODate): void {
     if (!this.selected) return;
@@ -480,7 +510,7 @@ export class DescansosY1EdicionComponent implements OnInit {
   get incWarn(): number { return this.countBy('WARNING'); }
   get incError(): number { return this.countBy('ERROR'); }
 
-  // ⚡ NUEVO: reset SOLO del colaborador seleccionado
+  // ⚡ reset SOLO del colaborador seleccionado
   async resetColaborador(): Promise<void> {
     if (!this.auth.hasRole('ADMIN') || !this.selected) { /* ... */ return; }
     const cid = this.selected.colaboradorId!;
@@ -554,4 +584,61 @@ export class DescansosY1EdicionComponent implements OnInit {
     this.cargarIncidencias(iso);
     this.resetSelection();
   }
+
+  //  (arriba, junto a otras props):
+@ViewChildren(CdkDropList) private dropLists!: QueryList<CdkDropList>;
+connectedLists: CdkDropList[] = [];
+
+draggingId: number | null = null;
+allowEnter = () => this.canEdit && !this.swapMode;
+
+//  (después de ngOnInit)
+ngAfterViewInit(): void {
+  this.connectedLists = this.dropLists?.toArray() ?? [];
+}
+
+//  (handlers DnD)
+onDragStart(e: CdkDragStart<number>) { this.draggingId = e.source.data ?? null; this.snack.dismiss(); }
+onDragEnd(_: CdkDragEnd<number>)     { this.draggingId = null; }
+
+// (drop a un día: mueve seleccionado al día de la celda)
+onDropToDay(row: CalendarRow, iso: ISODate, ev: CdkDragDrop<any>) {
+  if (!this.canEdit || this.swapMode) return;
+  const srcId = (ev?.item?.data ?? this.draggingId) as number | null;
+  if (!srcId) return;
+
+  const d = this.descansos.find(x => x.id === srcId);
+  if (!d) return;
+
+   if (d.fechaDescanso === iso) {
+    this.snack.open('Ya está en esa fecha.', 'OK', { duration: 1800 });
+    return;
+  }
+
+  // Bloquea si el reemplazo (dueño de la fila) tiene Y2 ese día
+  if (this.tieneReduccion(row.reemplazo, iso)) {
+    this.snack.open('⛔ No se puede mover: el reemplazo tiene una Reducción (Y2) ese día.', 'OK', { duration: 3200 });
+    return;
+  }
+
+  // Selecciona y mueve directamente (misma API que ya usas)
+  this.selected = d;
+  this.nuevaFechaDate = this.parseIsoDateLocal(iso);
+  this.forzar = false;
+  this.moverSeleccion();
+}
+
+onMoveHere(rowReemplazo: string, iso: ISODate): void {
+  if (!this.selected) {
+    this.snack.open('Selecciona un descanso primero.', 'OK', { duration: 1800 });
+    return;
+  }
+  this.nuevaFechaDate = this.parseIsoDateLocal(iso);
+  this.forzar = false;
+  // ✅ valida y mueve contra el reemplazo DESTINO (la fila)
+  this.moverSeleccion(rowReemplazo);
+}
+
+
+
 }

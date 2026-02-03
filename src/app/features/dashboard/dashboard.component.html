@@ -1,81 +1,229 @@
-<ui-page-header title="Dashboard Semanal" subtitle="Indicadores de programación y descansos"
+<!-- C:\Proyectos\planificacion-inteligente\src\app\features\dashboard\dashboard.component.html -->
+
+<ui-page-header title="Dashboard Semanal"
                 [subtitle]="subtitle"
-                [actions]="true"></ui-page-header>
+                [actions]="true">
+</ui-page-header>
+
+<!-- Barra de acciones / filtros -->
+
 
 <!-- Estado -->
-<div *ngIf="cargando" class="bg-blue-50 border border-blue-200 text-blue-600 rounded-xl px-4 py-3 mb-4">
-  Cargando datos...
-</div>
-<div *ngIf="error" class="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 mb-4">
-  {{ error }}
+<div *ngIf="cargando" class="state state-info mb-4">
+  <mat-icon>hourglass_top</mat-icon>
+  <span>Cargando dashboard...</span>
 </div>
 
-<!-- Métricas principales -->
-<div *ngIf="datos" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-  <ui-metric-card label="Colaboradores" [value]="datos.totalColaboradores"></ui-metric-card>
-  <ui-metric-card label="Máquinas" [value]="datos.totalMaquinas"></ui-metric-card>
-  <ui-metric-card label="Turnos Semanales" [value]="datos.totalTurnosSemana"></ui-metric-card>
+<div *ngIf="error" class="state state-error mb-4">
+  <mat-icon>error</mat-icon>
+  <span>{{ error }}</span>
 </div>
 
-<!-- Gráficos -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- ===================== -->
+<!-- CAPA 1: HEALTH -->
+<!-- ===================== -->
+<div *ngIf="data" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+
+  <ui-metric-card label="Colaboradores activos"
+                  [value]="data.health.colaboradoresActivos">
+  </ui-metric-card>
+
+  <ui-metric-card label="Máquinas activas"
+                  [value]="data.health.maquinasActivas">
+  </ui-metric-card>
+
+  <ui-metric-card label="Turnos semana"
+                  [value]="data.health.turnosSemana">
+  </ui-metric-card>
+
+  <ui-metric-card label="% días cubiertos"
+                  [value]="data.health.porcentajeDiasCubiertos + '%'">
+  </ui-metric-card>
+
+</div>
+
+<div *ngIf="data" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+
+  <!-- por definir si se ve
+
+    <ui-metric-card label="Máquinas sin titular"
+                    [value]="data.health.maquinasSinAsignacion">
+    </ui-metric-card>
+
+      <ui-metric-card label="Alertas activas (proxy)"
+                  [value]="data.health.alertasActivas">
+  </ui-metric-card>
+
+      <ui-metric-card label="Incidencias abiertas"
+                  [value]="data.health.incidenciasAbiertas">
+  </ui-metric-card>
+
+    -->
+
+
+
+
+
+</div>
+
+<!-- ===================== -->
+<!-- CAPA 2: OPERACIÓN -->
+<!-- ===================== -->
+<div *ngIf="data" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h4 class="font-semibold">Operación Compensatorios</h4>
+      <span class="badge">Semana</span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div class="kv"><span>Total</span><b>{{ data.operacion.y1.totalSemana }}</b></div>
+      <div class="kv"><span>Automáticos</span><b>{{ data.operacion.y1.automaticos }}</b></div>
+      <div class="kv"><span>Manuales</span><b>{{ data.operacion.y1.manuales }}</b></div>
+      <div class="kv"><span>SIN_ASIGNAR</span><b>{{ data.operacion.y1.sinAsignar }}</b></div>
+      <div class="kv"><span>Reemplazos efectivos</span><b>{{ data.operacion.y1.reemplazosEfectivos }}</b></div>
+      <div class="kv"><span>Reemplazos fallidos</span><b>{{ data.operacion.y1.reemplazosFallidos }}</b></div>
+    </div>
+  </div>
+
+  <div class="card p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h4 class="font-semibold">Operación Reducción</h4>
+      <span class="badge">Semana</span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div class="kv"><span>Total generados</span><b>{{ data.operacion.y2.totalGenerados }}</b></div>
+      <div class="kv"><span>SIN_ASIGNAR</span><b>{{ data.operacion.y2.sinAsignar }}</b></div>
+      <div class="kv"><span>Backlog total (h)</span><b>{{ data.operacion.y2.backlogTotalHoras }}</b></div>
+      <div class="kv"><span>Top backlog críticos</span><b>{{ data.operacion.y2.colaboradoresBacklogCritico }}</b></div>
+      <div class="kv"><span>Diferidos noche</span><b>{{ data.operacion.y2.diferidosNoche }}</b></div>
+      <div class="kv"><span>Franjas distintas</span><b>{{ (data.operacion.y2.porFranja | keyvalue).length }}</b></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===================== -->
+<!-- Gráficas de operación -->
+<!-- ===================== -->
+<div *ngIf="data" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+  <!-- Donut Y1 vs Y2 -->
   <div class="card p-4">
-    <h5 class="text-center mb-4 font-medium">Distribución de Descansos</h5>
+    <h5 class="text-center mb-4 font-medium">Distribución de descansos (Comp. vs Red.)</h5>
+
     <ng-container *ngIf="hasDescansosData; else emptyDescansos">
-      <apx-chart [series]="descansosData"
+      <apx-chart [series]="donutDescansosSeries"
                  [chart]="donutChart"
-                 [labels]="['Descansos Y1','Descansos Y2']"
+                 [labels]="['Comp.', 'Red.']"
                  [legend]="donutLegend"
                  [dataLabels]="donutDataLabels"
                  [stroke]="donutStroke"
                  [plotOptions]="donutPlotOptions"
-                 [colors]="descansosColors">
+                 [colors]="donutDescansosColors">
       </apx-chart>
     </ng-container>
+
     <ng-template #emptyDescansos>
-      <div class="min-h-[280px] grid place-items-center text-[var(--muted)]">
-        <div class="flex items-center gap-2">
-          <mat-icon>inbox</mat-icon>
-          <span>Sin datos para mostrar.</span>
-        </div>
+      <div class="empty">
+        <mat-icon>inbox</mat-icon>
+        <span>Sin datos para mostrar.</span>
       </div>
     </ng-template>
   </div>
 
+  <!-- Barras por franja -->
   <div class="card p-4">
-    <h5 class="text-center mb-4 font-medium">Alertas vs Sugerencias</h5>
-    <ng-container *ngIf="hasAlertasData; else emptyAlertas">
-      <apx-chart [series]="alertasData"
-                 [chart]="donutChart"
-                 [labels]="['Alertas','Sugerencias IA']"
-                 [legend]="donutLegend"
-                 [dataLabels]="donutDataLabels"
-                 [stroke]="donutStroke"
-                 [plotOptions]="donutPlotOptions"
-                 [colors]="alertasColors">
-      </apx-chart>
-    </ng-container>
-    <ng-template #emptyAlertas>
-      <div class="min-h-[280px] grid place-items-center text-[var(--muted)]">
-        <div class="flex items-center gap-2">
-          <mat-icon>inbox</mat-icon>
-          <span>Sin alertas ni sugerencias.</span>
-        </div>
-      </div>
-    </ng-template>
+    <h5 class="text-center mb-4 font-medium">Reducción por franja</h5>
+
+    <apx-chart [series]="y2FranjaSeries"
+               [chart]="y2FranjaChart"
+               [xaxis]="y2FranjaXAxis"
+               [yaxis]="y2FranjaYAxis"
+               [grid]="y2FranjaGrid"
+               [tooltip]="y2FranjaTooltip"
+               [dataLabels]="y2FranjaDataLabels">
+    </apx-chart>
+  </div>
+
+</div>
+
+<!-- ===================== -->
+<!-- CAPA 3: TENDENCIAS -->
+<!-- ===================== -->
+<div *ngIf="data" class="card p-4 mb-6">
+  <div class="flex items-center justify-between mb-2">
+    <h4 class="font-semibold">Tendencias (últimas semanas)</h4>
+    <span class="text-xs text-[var(--muted)]">
+      Turnos / Y1 / Y2 / BacklogY2
+    </span>
+  </div>
+
+  <apx-chart [series]="trendsSeries"
+             [chart]="trendsChart"
+             [xaxis]="trendsXAxis"
+             [yaxis]="trendsYAxis"
+             [grid]="trendsGrid"
+             [tooltip]="trendsTooltip"
+             [stroke]="trendsStroke"
+             [dataLabels]="trendsDataLabels">
+  </apx-chart>
+</div>
+
+<!-- ===================== -->
+<!-- CAPA 4: ACCIONES -->
+<!-- ===================== -->
+<div *ngIf="data" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+  <!-- Top backlog -->
+  <div class="card p-6">
+    <div class="flex items-center justify-between mb-3">
+      <h4 class="font-semibold">Top acumulado crítico de reduccón</h4>
+      <span class="badge badge-warn">Acción</span>
+    </div>
+
+    <ui-data-table [columns]="[
+        { field: 'colaboradorId', header: 'ID' },
+        { field: 'nombre', header: 'Colaborador' },
+        { field: 'backlogHoras', header: 'Horas' }
+      ]"
+                   [data]="data.acciones.backlogCritico"
+                   emptyMessage="Sin backlog crítico registrado.">
+    </ui-data-table>
+  </div>
+
+  <!-- Días críticos -->
+  <div class="card p-6">
+    <div class="flex items-center justify-between mb-3">
+      <h4 class="font-semibold">Días críticos SIN_ASIGNAR (Reducción)</h4>
+      <span class="badge badge-danger">Prioridad</span>
+    </div>
+
+    <ui-data-table [columns]="[
+        { field: 'fecha', header: 'Fecha' },
+        { field: 'cantidad', header: 'Cantidad' }
+      ]"
+                   [data]="data.acciones.diasSinAsignar"
+                   emptyMessage="No hay días críticos con SIN_ASIGNAR.">
+    </ui-data-table>
   </div>
 </div>
 
-<!-- Cambios recientes -->
-<div class="card p-6 mt-6">
-  <h4 class="mb-4 font-semibold">Cambios Recientes</h4>
+<!-- Alertas pendientes -->
+<div *ngIf="data" class="card p-6">
+  <div class="flex items-center justify-between mb-3">
+    <h4 class="font-semibold">Alertas pendientes</h4>
+    <span class="badge">Sistema</span>
+  </div>
+
   <ui-data-table [columns]="[
-      { field: 'fechaHora',     header: 'Fecha' },
-      { field: 'tipoCambio',    header: 'Tipo' },
-      { field: 'descripcion',   header: 'Descripción' },
-      { field: 'realizadoPor',  header: 'Por' }
+      { field: 'tipo', header: 'Tipo' },
+      { field: 'mensaje', header: 'Mensaje' },
+      { field: 'diasAbierta', header: 'Días' }
     ]"
-                 [data]="historialCambios"
-                 emptyMessage="No hay cambios recientes registrados.">
+                 [data]="data.acciones.alertasPendientes"
+                 emptyMessage="Sin alertas pendientes ✅">
   </ui-data-table>
 </div>

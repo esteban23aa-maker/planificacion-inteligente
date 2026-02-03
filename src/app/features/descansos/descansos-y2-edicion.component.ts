@@ -102,6 +102,17 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
   private y1 = inject(DescansosY1Service);                 
   private overlayY1Busy = new Map<string, Set<string>>();
 
+private overlayY1ByColab = new Map<string, Set<string>>();    // ✅ NUEVO: por colaborador -> alerta al seleccionar
+
+// ===== Alerta selección =====
+selectedY1Days = new Set<ISO>();                              // ✅ columnas en rojo
+private lastY1WarnKey: string | null = null;                  // evita re-abrir el modal repetido
+private y1WarnRef: any = null;                                // MatDialogRef (tipo any para no pelear con genéricos)
+selectedY1WarnText = '';                                      // texto del modal
+
+@ViewChild('y1WarnDialog') y1WarnDialog!: TemplateRef<any>;   // ✅ NUEVO template
+
+
   // ===== Dialog templates =====
   @ViewChild('crearDialog') crearDialog!: TemplateRef<any>;
   @ViewChild('editarDialog') editarDialog!: TemplateRef<any>;
@@ -215,6 +226,11 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
       if (h === 8) this.fActualizar.get('franja')!.setValue('DIA_COMPLETO');
       else if (this.fActualizar.get('franja')!.value === 'DIA_COMPLETO') this.fActualizar.get('franja')!.setValue(null);
     });
+    this.fActualizar.get('id')!.valueChanges.subscribe((id: any) => {
+      if (id) this.selectById(Number(id));
+      else this.clearSelection();
+    });
+
   }
 
   ngAfterViewInit(): void {
@@ -267,15 +283,39 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
       this.backlog = backlog || [];
       this.descansosSemana = descansos || [];
 
+      // ✅ Si había algo seleccionado, pero ya no existe, límpialo.
+      if (this.selectedId) {
+        const existe = this.descansosSemana.some(x => x.id === this.selectedId);
+        if (!existe) this.clearSelection();
+      }
+
+
       // Overlay Y1 (compensatorio)
       this.overlayY1Busy.clear();
+      this.overlayY1ByColab.clear();
+
       for (const d of (y1Descansos || [])) {
-        const nombreReemplazo = this._norm(d.reemplazo);
         const iso = d.fechaDescanso;
-        if (!nombreReemplazo || !iso) continue;
-        if (!this.overlayY1Busy.has(nombreReemplazo)) this.overlayY1Busy.set(nombreReemplazo, new Set());
-        this.overlayY1Busy.get(nombreReemplazo)!.add(iso);
+        if (!iso) continue;
+
+        // ✅ SI el Y1 está SIN reemplazo -> NO afecta overlays, NO warning
+        if (!this.hasReemplazoRealY1(d)) continue;
+
+        // 1) Ocupación por reemplazo (solo si hay reemplazo real)
+        const nombreReemplazo = this._norm((d as any).reemplazo);
+        if (nombreReemplazo) {
+          if (!this.overlayY1Busy.has(nombreReemplazo)) this.overlayY1Busy.set(nombreReemplazo, new Set());
+          this.overlayY1Busy.get(nombreReemplazo)!.add(iso);
+        }
+
+        // 2) Alerta por colaborador que descansa (solo si hay reemplazo real)
+        const nombreColab = this._norm((d as any).colaborador);
+        if (nombreColab) {
+          if (!this.overlayY1ByColab.has(nombreColab)) this.overlayY1ByColab.set(nombreColab, new Set());
+          this.overlayY1ByColab.get(nombreColab)!.add(iso);
+        }
       }
+
 
       this.colaboradoresList = (this.backlog || [])
         .map(b => ({ id: b.colaboradorId, nombre: b.nombre }))
@@ -287,6 +327,8 @@ export class DescansosY2EdicionComponent implements OnInit, AfterViewInit {
       );
 
       this.buildCalendar();
+
+      this.refreshSelectedY1Alert();
 
       if (this.pendingScrollIso) {
         const iso = this.pendingScrollIso;
@@ -498,12 +540,31 @@ private reemplazoNameIdMap(): Map<string, number> {
       forzar: false
     }, { emitEvent: false });
     this.cdr.markForCheck();
+    this.refreshSelectedY1Alert();
+
   }
 
   clearSelection() {
     this.selected = null;
     this.selectedId = null;
+
+      // limpia el form para que no quede "pegado" el id
+  this.fActualizar.reset({
+    id: null,
+    nuevaFecha: null,
+    horas: null,
+    franja: null,
+    reemplazoId: null,
+    forzar: false
+  }, { emitEvent: false });
+
+    
+    this.selectedY1Days = new Set<ISO>();
+    this.lastY1WarnKey = null;
+    this.selectedY1WarnText = '';
+    this.closeY1WarnModal();
     this.cdr.markForCheck();
+
   }
 
   onClickPerson(group: CellGroup, idx: number) {
@@ -764,9 +825,12 @@ private reemplazoNameIdMap(): Map<string, number> {
     };
     this.crud.actualizar(req).subscribe({
       next: () => {
-        const iso = this.fActualizar.value.nuevaFecha ? this.toIsoLocal(this.fActualizar.value.nuevaFecha) : (this.selected?.fechaReduccion || null);
+        const iso = this.fActualizar.value.nuevaFecha
+        ? this.toIsoLocal(this.fActualizar.value.nuevaFecha)
+        : (this.selected?.fechaReduccion || null);
         if (iso) this.pendingScrollIso = iso;
         this.snack.open('✏️ Reduccion actualizada.', 'OK', { duration: 2200 });
+        this.clearSelection();
         this.cargar();
       },
       error: err => this.snack.open('Error al actualizar: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 })
@@ -911,4 +975,128 @@ isY1Ocupado(nombreFila: string, iso: string): boolean {
       error: err => this.snack.open('Error en reset: ' + (err?.error || err?.message || 'desconocido'), 'OK', { duration: 3500 })
     }).add(() => { this.working = false; this.cdr.markForCheck(); });
   }
+
+  isSelectedY1Day(iso: ISO): boolean {
+  return this.selectedY1Days.has(iso);
+}
+
+private closeY1WarnModal(): void {
+  try { this.y1WarnRef?.close?.(); } catch {}
+  this.y1WarnRef = null;
+}
+
+private refreshSelectedY1Alert(): void {
+  // limpiar solo el pintado/texto (no mates el key de entrada)
+  this.selectedY1Days = new Set<ISO>();
+  this.selectedY1WarnText = '';
+
+  if (!this.selected || !this.selectedId) {
+    this.lastY1WarnKey = null;
+    this.closeY1WarnModal();
+    this.cdr.markForCheck();
+    return;
+  }
+
+    // solo advertir si el Y2 tiene reemplazo real
+  if (!this.hasReemplazoReal(this.selected)) {
+    this.lastY1WarnKey = null;
+    this.closeY1WarnModal();
+    this.cdr.markForCheck();
+    return;
+  }
+
+  const nombreSel = this._norm((this.selected as any).colaborador);
+  if (!nombreSel) {
+    this.lastY1WarnKey = null;
+    this.closeY1WarnModal();
+    this.cdr.markForCheck();
+    return;
+  }
+
+  const visibles = new Set(this.calendarCols.map(c => c.iso));
+  const diasY1 = this.overlayY1ByColab.get(nombreSel);
+
+  if (!diasY1 || diasY1.size === 0) {
+    this.lastY1WarnKey = null;
+    this.closeY1WarnModal();
+    this.cdr.markForCheck();
+    return;
+  }
+
+  const diasEnSemana = Array.from(diasY1).filter(iso => visibles.has(iso));
+  if (!diasEnSemana.length) {
+    this.lastY1WarnKey = null;
+    this.closeY1WarnModal();
+    this.cdr.markForCheck();
+    return;
+  }
+
+  this.selectedY1Days = new Set(diasEnSemana);
+
+  const labels = diasEnSemana.map(iso => this.calendarCols.find(c => c.iso === iso)?.label || iso);
+  const nombreDisplay = (this.selected as any).colaborador || 'Esta persona';
+  this.selectedY1WarnText =
+    `${nombreDisplay} tiene descanso compensatorio el día ${labels.join(', ')} en la semana actual.`;
+
+  const key = `${this.selectedId}|${diasEnSemana.slice().sort().join(',')}`;
+
+  // ✅ si es el mismo caso y el modal sigue abierto: NO reabras
+  if (this.lastY1WarnKey === key && this.y1WarnRef) {
+    this.cdr.markForCheck();
+    return;
+  }
+
+  // ✅ si cambió el caso: cerrar y abrir de nuevo
+  this.lastY1WarnKey = key;
+  this.closeY1WarnModal();
+
+  this.y1WarnRef = this.dialog.open(this.y1WarnDialog, {
+    width: '520px',
+    autoFocus: false,
+    restoreFocus: false,
+    panelClass: 'y1-warn-dialog'
+  });
+
+  // (opcional pro) limpiar referencia cuando cierre manualmente
+  this.y1WarnRef.afterClosed().subscribe(() => {
+    this.y1WarnRef = null;
+  });
+
+  this.cdr.markForCheck();
+}
+
+// helper (ponlo cerca de _norm)
+private hasReemplazoRealY1(d: any): boolean {
+  const repId = d?.reemplazoId as number | null | undefined;
+  if (repId != null) return true;
+
+  const repNameRaw = (d?.reemplazo ?? '') as string;
+  const repName = repNameRaw.trim();
+  if (!repName) return false;
+
+  const n = this._norm(repName);
+  if (n === '—') return false;
+  if (n.includes('SIN ASIGNAR') || n.includes('SINASIGNAR')) return false;
+
+  return true;
+}
+
+// ✅ helper: reemplazo real para Y2 (selección / warnings / validaciones UI)
+private hasReemplazoReal(d: any): boolean {
+  const repId = d?.reemplazoId as number | null | undefined;
+  if (repId != null) return true;
+
+  const repNameRaw = (d?.reemplazo ?? '') as string;
+  const repName = repNameRaw.trim();
+  if (!repName) return false;
+
+  const n = this._norm(repName);
+  if (n === '—') return false;
+  if (n.includes('SIN ASIGNAR') || n.includes('SINASIGNAR')) return false;
+
+  return true;
+}
+
+
+
 }

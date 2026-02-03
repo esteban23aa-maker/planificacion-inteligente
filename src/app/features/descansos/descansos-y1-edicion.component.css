@@ -731,3 +731,22 @@ td, th {
   color: #114a7a;
   border-color: #9bd3ff;
 }
+
+/* nuevos */
+/* descansas-y1-edicion.component.css */
+.drop-day {
+  margin-top: .35rem;
+  display: flex;
+  justify-content: center;
+}
+
+  .drop-day .slot-btn {
+    font-size: 12px;
+    line-height: 1.1;
+    padding: 2px 8px;
+    opacity: .65;
+  }
+
+    .drop-day .slot-btn:hover {
+      opacity: 1;
+    }
